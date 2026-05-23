@@ -1,4 +1,11 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  shell,
+  systemPreferences,
+  desktopCapturer,
+} = require("electron");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 const execFileAsync = promisify(execFile);
@@ -24,6 +31,57 @@ function isOurApp(info) {
   return exe.includes("lockin") || (isDev && exe.includes("electron.exe"));
 }
 
+function getPermissionsStatus() {
+  if (process.platform !== "darwin") {
+    return { accessibility: "granted", screenRecording: "granted" };
+  }
+  return {
+    accessibility: systemPreferences.isTrustedAccessibilityClient(false)
+      ? "granted"
+      : "denied",
+    screenRecording: systemPreferences.getMediaAccessStatus("screen"),
+  };
+}
+
+let permissionsRequestedOnce = false;
+
+/**
+ * Trigger macOS permission prompts. Each prompt is one-shot per app install —
+ * if the user already dismissed it, the system won't re-show; the caller
+ * should fall back to opening the relevant Privacy & Security pane.
+ */
+async function requestMacPermissions({ prompt = true } = {}) {
+  if (process.platform !== "darwin") return getPermissionsStatus();
+
+  // Accessibility — `isTrustedAccessibilityClient(true)` shows the prompt the
+  // first time the user is asked.
+  try {
+    systemPreferences.isTrustedAccessibilityClient(Boolean(prompt));
+  } catch (e) {
+    console.error("[permissions] accessibility check failed:", e?.message ?? e);
+  }
+
+  // Screen Recording — Electron exposes the status but not a direct prompt.
+  // Calling `desktopCapturer.getSources({ types: ['screen'] })` is what
+  // actually triggers the macOS prompt the first time.
+  if (prompt) {
+    const status = systemPreferences.getMediaAccessStatus("screen");
+    if (status === "not-determined" || status === "denied") {
+      try {
+        await desktopCapturer.getSources({
+          types: ["screen"],
+          thumbnailSize: { width: 1, height: 1 },
+        });
+      } catch (e) {
+        console.error("[permissions] screen recording prompt failed:", e?.message ?? e);
+      }
+    }
+  }
+
+  permissionsRequestedOnce = true;
+  return getPermissionsStatus();
+}
+
 let activeWindowFn = null;
 let openWindowsFn = null;
 async function getWindowsModule() {
@@ -38,6 +96,9 @@ async function getWindowsModule() {
 let lastSnapshot = null;
 let lastError = null;
 let focusSession = { active: false, allowedApps: [], allowedSites: [] };
+// Captured at session start so the app the user was in *before* locking in
+// doesn't count as a breach until they actually switch to it again.
+let sessionStartGraceKey = null;
 let lastAllowedWindowId = null; // Windows HWND
 let lastAllowedAppName = null; // macOS app name (for osascript fallback)
 let lastAllowedUrl = null; // for browser tab restoration
@@ -181,21 +242,52 @@ async function refocusLastAllowed() {
 ipcMain.handle("active-app:get", () => ({ snapshot: lastSnapshot, error: lastError }));
 
 ipcMain.on("focus-session:sync", (_e, payload) => {
+  const wasActive = focusSession.active;
   focusSession = {
     active: Boolean(payload?.active),
     allowedApps: Array.isArray(payload?.allowedApps) ? payload.allowedApps : [],
     allowedSites: Array.isArray(payload?.allowedSites) ? payload.allowedSites : [],
   };
+  if (focusSession.active && !wasActive) {
+    // Grace the current snapshot — don't penalize the user for an app they
+    // already had open before they clicked Lock In.
+    sessionStartGraceKey = lastSnapshot
+      ? `${lastSnapshot.app}|${lastSnapshot.url ?? ""}`
+      : null;
+    // If they already had a browser tab open on a disallowed URL, navigate it
+    // to a clean slate so they can start working without it counting as a
+    // breach. Fire-and-forget — graceKey prevents breach if the nav lags.
+    if (lastSnapshot) {
+      const isBrowser =
+        !!lastSnapshot.url && BROWSER_TAB_ACCESSORS[lastSnapshot.app];
+      const allowedNow = isAllowedFocusApp(
+        lastSnapshot,
+        focusSession.allowedApps,
+        focusSession.allowedSites,
+      );
+      if (isBrowser && !allowedNow) {
+        restoreBrowserTab(lastSnapshot.app, "about:blank").catch((e) =>
+          console.error("[focus] start-clean nav failed:", e?.message),
+        );
+      }
+    }
+  }
   if (!focusSession.active) {
     lastAllowedWindowId = null;
     lastAllowedAppName = null;
     lastAllowedUrl = null;
+    sessionStartGraceKey = null;
   }
 });
 
 function startActiveAppPolling(win) {
   let lastKey = null;
   let lastErrorSent = null;
+  let consecutiveErrors = 0;
+  // Don't show the scary "detection error" UI on a single hiccup — only after
+  // several polls fail in a row. Permission-classified errors surface
+  // immediately so the user can act.
+  const UNKNOWN_ERROR_THRESHOLD = 4;
   let stopped = false;
 
   async function poll() {
@@ -211,6 +303,15 @@ function startActiveAppPolling(win) {
           !ownApp &&
           isAllowedFocusApp(snapshot, focusSession.allowedApps, focusSession.allowedSites);
 
+        // Grace check — don't penalize the app the user already had open
+        // before locking in. Clear the grace once they switch to anything else.
+        const snapshotKey = `${snapshot.app}|${snapshot.url ?? ""}`;
+        const inGrace =
+          sessionStartGraceKey !== null && snapshotKey === sessionStartGraceKey;
+        if (sessionStartGraceKey !== null && !inGrace) {
+          sessionStartGraceKey = null;
+        }
+
         // During a focus session, snap back to the last allowed window whenever
         // the user lands on something off the list. Don't `return` after — the
         // renderer's breach UI relies on still receiving the disallowed
@@ -219,6 +320,7 @@ function startActiveAppPolling(win) {
           focusSession.active &&
           !ownApp &&
           !allowed &&
+          !inGrace &&
           Date.now() - lastRestoreAt > RESTORE_COOLDOWN_MS
         ) {
           lastRestoreAt = Date.now();
@@ -228,38 +330,28 @@ function startActiveAppPolling(win) {
             !!snapshot.url && BROWSER_TAB_ACCESSORS[snapshot.app] !== undefined;
           let restored = null;
           if (inBrowser) {
-            const urls = await getBrowserTabUrls(snapshot.app);
-            if (urls && urls.length) {
-              const currentIndex = urls.findIndex((u) => u === snapshot.url);
-              // 1. Prefer the exact tab they were last allowed on.
-              let targetIndex = lastAllowedUrl
-                ? urls.findIndex(
-                    (u, i) => i !== currentIndex && u === lastAllowedUrl,
-                  )
-                : -1;
-              // 2. Otherwise pick any other allowed tab in this window.
-              if (targetIndex < 0) {
-                targetIndex = urls.findIndex(
-                  (u, i) =>
-                    i !== currentIndex &&
-                    isSiteAllowed(u, focusSession.allowedSites),
+            // Only switch tabs if we find the EXACT URL the user was last on.
+            // Don't hunt for "any allowed tab" — that can pop open a stale
+            // background tab the user forgot existed.
+            if (lastAllowedUrl) {
+              const urls = await getBrowserTabUrls(snapshot.app);
+              if (urls && urls.length) {
+                const currentIndex = urls.findIndex((u) => u === snapshot.url);
+                const targetIndex = urls.findIndex(
+                  (u, i) => i !== currentIndex && u === lastAllowedUrl,
                 );
-              }
-              if (targetIndex >= 0) {
-                if (await switchToBrowserTab(snapshot.app, targetIndex + 1)) {
-                  restored = { windowId: null, refocused: urls[targetIndex] };
+                if (targetIndex >= 0) {
+                  if (await switchToBrowserTab(snapshot.app, targetIndex + 1)) {
+                    restored = { windowId: null, refocused: urls[targetIndex] };
+                  }
                 }
               }
-            }
-            // No allowed tab open — navigate the offending tab to a safe URL.
-            if (!restored && lastAllowedUrl) {
-              if (await restoreBrowserTab(snapshot.app, lastAllowedUrl)) {
-                restored = { windowId: null, refocused: lastAllowedUrl };
-              }
-            }
-            if (!restored) {
-              if (await restoreBrowserTab(snapshot.app, "https://www.google.com/")) {
-                restored = { windowId: null, refocused: "google.com" };
+              // That tab is gone — rewrite the offending tab back to the URL
+              // they had been on (the page they came from).
+              if (!restored) {
+                if (await restoreBrowserTab(snapshot.app, lastAllowedUrl)) {
+                  restored = { windowId: null, refocused: lastAllowedUrl };
+                }
               }
             }
           }
@@ -291,47 +383,43 @@ function startActiveAppPolling(win) {
             lastError = null;
             if (!win.isDestroyed()) win.webContents.send("active-app:error", null);
           }
+          consecutiveErrors = 0;
         }
+      } else {
+        // Poll returned no info but didn't throw — treat as a transient miss.
+        consecutiveErrors = 0;
       }
     } catch (e) {
-      let stderr = e?.stderr
-        ? Buffer.isBuffer(e.stderr)
-          ? e.stderr.toString()
-          : String(e.stderr)
-        : "";
-      // get-windows swallows stderr in some failure paths — probe the helper
-      // binary directly so we can detect WHICH permission is missing.
-      if (
-        process.platform === "darwin" &&
-        !stderr &&
-        /Command failed/.test(e?.message ?? "")
-      ) {
-        try {
-          await execFileAsync(
-            path.join(__dirname, "..", "node_modules", "get-windows", "main"),
-            [],
-            { timeout: OSASCRIPT_TIMEOUT_MS },
-          );
-        } catch (probe) {
-          if (probe?.stderr) stderr = probe.stderr.toString();
-        }
+      consecutiveErrors += 1;
+      const msg = e?.message ?? String(e);
+
+      // get-windows hangs for ~30s before printing its permission message, so
+      // running it again is hopeless. Ask Electron's systemPreferences which
+      // permission is actually missing — it's instant and authoritative.
+      let kind = "unknown";
+      if (process.platform === "darwin") {
+        const screen = systemPreferences.getMediaAccessStatus("screen");
+        const axTrusted = systemPreferences.isTrustedAccessibilityClient(false);
+        if (screen !== "granted") kind = "needs-screen-recording";
+        else if (!axTrusted) kind = "needs-accessibility";
       }
-      const msg = `${e?.message ?? String(e)} ${stderr}`.trim();
-      const kind =
-        process.platform === "win32"
-          ? "unknown"
-          : /accessibility/i.test(msg)
-            ? "needs-accessibility"
-            : /screen recording/i.test(msg)
-              ? "needs-screen-recording"
-              : "unknown";
-      if (lastErrorSent !== kind) {
+      // Suppress generic "unknown" errors until they persist — most are
+      // transient (timeouts, the helper momentarily can't read a window).
+      // Permission-classified errors surface immediately.
+      const shouldEmit =
+        kind !== "unknown" || consecutiveErrors >= UNKNOWN_ERROR_THRESHOLD;
+      if (shouldEmit && lastErrorSent !== kind) {
         lastErrorSent = kind;
         lastError = { kind, message: msg };
         if (!win.isDestroyed()) {
           win.webContents.send("active-app:error", { kind, message: msg });
         }
         console.error("[active-app] poll error:", msg);
+      } else if (!shouldEmit) {
+        console.warn(
+          `[active-app] transient poll error (${consecutiveErrors}/${UNKNOWN_ERROR_THRESHOLD}):`,
+          msg,
+        );
       }
     }
   }
@@ -421,11 +509,29 @@ ipcMain.handle("custom-sites:list", () => db.listCustomSites());
 ipcMain.handle("custom-sites:add", (_e, host) => db.addCustomSite(host));
 ipcMain.handle("custom-sites:remove", (_e, id) => db.removeCustomSite(id));
 
-ipcMain.on("open:accessibility-settings", () => {
-  if (process.platform === "darwin") {
+ipcMain.handle("permissions:status", () => getPermissionsStatus());
+ipcMain.handle("permissions:request", () => requestMacPermissions({ prompt: true }));
+
+// The "Grant ..." buttons in the footer call this. We try the OS prompt first
+// (which only works the first time per app), then open the settings pane as a
+// reliable fallback so the user always has a path forward.
+async function ensurePermission(kind) {
+  if (process.platform !== "darwin") return;
+  const status = await requestMacPermissions({ prompt: true });
+  if (kind === "accessibility" && status.accessibility !== "granted") {
     shell.openExternal(
       "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
     );
+  } else if (kind === "screen-recording" && status.screenRecording !== "granted") {
+    shell.openExternal(
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+    );
+  }
+}
+
+ipcMain.on("open:accessibility-settings", () => {
+  if (process.platform === "darwin") {
+    ensurePermission("accessibility");
     return;
   }
   if (process.platform === "win32") {
@@ -435,15 +541,21 @@ ipcMain.on("open:accessibility-settings", () => {
 
 ipcMain.on("open:screen-recording-settings", () => {
   if (process.platform === "darwin") {
-    shell.openExternal(
-      "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
-    );
+    ensurePermission("screen-recording");
   }
 });
 
 app.whenReady().then(() => {
   db.init(app.getPath("userData"));
   createWindow();
+
+  // Trigger macOS permission prompts (Accessibility + Screen Recording) on
+  // first launch. Fire-and-forget so startup isn't blocked by the dialogs.
+  if (!permissionsRequestedOnce) {
+    requestMacPermissions({ prompt: true }).catch((e) =>
+      console.error("[permissions] initial request failed:", e?.message ?? e),
+    );
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   openAccessibilitySettings: () => ipcRenderer.send("open:accessibility-settings"),
   openScreenRecordingSettings: () => ipcRenderer.send("open:screen-recording-settings"),
+  requestPermissions: () => ipcRenderer.invoke("permissions:request"),
+  getPermissionsStatus: () => ipcRenderer.invoke("permissions:status"),
   syncFocusSession: (active, allowedApps, allowedSites) =>
     ipcRenderer.send("focus-session:sync", { active, allowedApps, allowedSites }),
   onFocusRestored: (cb) => {

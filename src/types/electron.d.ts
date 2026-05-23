@@ -28,6 +28,11 @@ export type CustomSite = {
   created_at?: number;
 };
 
+export type PermissionsStatus = {
+  accessibility: "granted" | "denied" | "not-determined" | "restricted" | "unknown";
+  screenRecording: "granted" | "denied" | "not-determined" | "restricted" | "unknown";
+};
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -42,6 +47,8 @@ declare global {
       }>;
       openAccessibilitySettings: () => void;
       openScreenRecordingSettings: () => void;
+      requestPermissions: () => Promise<PermissionsStatus>;
+      getPermissionsStatus: () => Promise<PermissionsStatus>;
       syncFocusSession: (
         active: boolean,
         allowedApps: string[],

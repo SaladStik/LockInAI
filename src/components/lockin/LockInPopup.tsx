@@ -96,6 +96,9 @@ export function LockInPopup() {
   const MAX_BREACHES = 3;
   const breachTimer = useRef<number | null>(null);
   const focusAllowedRef = useRef(true);
+  // The app the user was already in when they locked in — don't fire a breach
+  // until they switch away from it.
+  const sessionStartGraceRef = useRef<string | null>(null);
   const hasNativeAppDetection =
     typeof window !== "undefined" && Boolean(window.electronAPI);
 
@@ -113,7 +116,10 @@ export function LockInPopup() {
   useEffect(() => {
     if (!hasNativeAppDetection) return;
     window.electronAPI?.syncFocusSession(screen === "focus", apps, sites);
-    if (screen !== "focus") focusAllowedRef.current = true;
+    if (screen !== "focus") {
+      focusAllowedRef.current = true;
+      sessionStartGraceRef.current = null;
+    }
   }, [screen, apps, sites, hasNativeAppDetection]);
 
   useEffect(() => {
@@ -171,6 +177,14 @@ export function LockInPopup() {
   useEffect(() => {
     if (screen !== "focus" || !hasNativeAppDetection || !activeApp) return;
 
+    // Grace: the app the user already had open at lock-in time doesn't count
+    // as a breach. The grace clears as soon as they switch to anything else.
+    const currentKey = `${activeApp.app}|${activeApp.url ?? ""}`;
+    if (sessionStartGraceRef.current === currentKey) return;
+    if (sessionStartGraceRef.current !== null) {
+      sessionStartGraceRef.current = null;
+    }
+
     const allowed = isAllowedFocusApp(activeApp, apps, sites);
     if (allowed) {
       focusAllowedRef.current = true;
@@ -190,7 +204,7 @@ export function LockInPopup() {
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, activeApp, apps, hasNativeAppDetection]);
+  }, [screen, activeApp, apps, sites, hasNativeAppDetection]);
 
   // Browser fallback when not running inside Electron.
   useEffect(() => {
@@ -231,6 +245,11 @@ export function LockInPopup() {
     setBreachCount(0);
     setBreach(false);
     focusAllowedRef.current = true;
+    // Don't trigger a breach for the app the user was already in — wait until
+    // they actually switch to something else.
+    sessionStartGraceRef.current = activeApp
+      ? `${activeApp.app}|${activeApp.url ?? ""}`
+      : null;
     setScreen("focus");
     setToast("LOCKED IN");
     window.setTimeout(() => setToast(null), 1800);
@@ -702,7 +721,7 @@ function AppsScreen({
   }
 
   return (
-    <SetupShell step={3} title="Allowed apps & sites" plantStage={2}>
+    <SetupShell step={3} title="Allowed apps" plantStage={2}>
       <div className="flex flex-wrap gap-2">
         {defaults.map((a) => (
           <Chip key={a} active={apps.includes(a)} onClick={() => toggle(a)}>
