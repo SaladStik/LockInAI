@@ -24,6 +24,12 @@ export type EnforcementBreach = {
   refocused: string;
 };
 
+export type CustomApp = {
+  id: number;
+  name: string;
+  created_at?: number;
+};
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -34,8 +40,14 @@ declare global {
       onActiveAppError: (cb: (error: ActiveAppError) => void) => () => void;
       getCurrentActiveApp: () => Promise<{ snapshot: ActiveAppSnapshot | null; error: ActiveAppError }>;
       openAccessibilitySettings: () => void;
+      openScreenRecordingSettings: () => void;
       setEnforcement: (payload: EnforcementPayload) => void;
       onEnforcementBreach: (cb: (info: EnforcementBreach) => void) => () => void;
+      customApps: {
+        list: () => Promise<CustomApp[]>;
+        add: (name: string) => Promise<CustomApp | null>;
+        remove: (id: number) => Promise<boolean>;
+      };
     };
   }
 }

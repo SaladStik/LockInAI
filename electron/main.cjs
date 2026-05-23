@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const { exec } = require("node:child_process");
 const path = require("node:path");
+const db = require("./db.cjs");
 
 const isDev = process.env.NODE_ENV === "development";
 const devUrl = process.env.NEXT_DEV_SERVER_URL;
@@ -120,7 +121,29 @@ function startActiveAppPolling(win) {
         }
       }
     } catch (e) {
-      const msg = e?.message ?? String(e);
+      let stderr = e?.stderr
+        ? Buffer.isBuffer(e.stderr)
+          ? e.stderr.toString()
+          : String(e.stderr)
+        : "";
+      // get-windows swallows stderr in some failure paths — probe the helper
+      // binary directly so we can detect WHICH permission is missing.
+      if (
+        process.platform === "darwin" &&
+        !stderr &&
+        /Command failed/.test(e?.message ?? "")
+      ) {
+        try {
+          require("node:child_process").execFileSync(
+            path.join(__dirname, "..", "node_modules", "get-windows", "main"),
+            [],
+            { stdio: "pipe" },
+          );
+        } catch (probe) {
+          if (probe?.stderr) stderr = probe.stderr.toString();
+        }
+      }
+      const msg = `${e?.message ?? String(e)} ${stderr}`.trim();
       const kind =
         process.platform === "win32"
           ? "unknown"
@@ -212,6 +235,10 @@ ipcMain.on("window:maximize", (e) => {
   else win.maximize();
 });
 
+ipcMain.handle("custom-apps:list", () => db.listCustomApps());
+ipcMain.handle("custom-apps:add", (_e, name) => db.addCustomApp(name));
+ipcMain.handle("custom-apps:remove", (_e, id) => db.removeCustomApp(id));
+
 ipcMain.on("open:accessibility-settings", () => {
   if (process.platform === "darwin") {
     shell.openExternal(
@@ -224,7 +251,16 @@ ipcMain.on("open:accessibility-settings", () => {
   }
 });
 
+ipcMain.on("open:screen-recording-settings", () => {
+  if (process.platform === "darwin") {
+    shell.openExternal(
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+    );
+  }
+});
+
 app.whenReady().then(() => {
+  db.init(app.getPath("userData"));
   createWindow();
 
   app.on("activate", () => {

@@ -16,7 +16,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("active-app:error", listener);
   },
   openAccessibilitySettings: () => ipcRenderer.send("open:accessibility-settings"),
+  openScreenRecordingSettings: () => ipcRenderer.send("open:screen-recording-settings"),
   setEnforcement: (payload) => ipcRenderer.send("enforcement:set", payload),
+  customApps: {
+    list: () => ipcRenderer.invoke("custom-apps:list"),
+    add: (name) => ipcRenderer.invoke("custom-apps:add", name),
+    remove: (id) => ipcRenderer.invoke("custom-apps:remove", id),
+  },
   onEnforcementBreach: (cb) => {
     const listener = (_event, info) => cb(info);
     ipcRenderer.on("enforcement:breach", listener);
