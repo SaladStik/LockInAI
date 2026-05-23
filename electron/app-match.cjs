@@ -62,6 +62,27 @@ const SYSTEM_EXE_PATTERNS = [
 // Sites the user can always reach — search, reference, browser new-tab pages.
 const ALWAYS_ALLOWED_HOSTS = ["google.com", "wikipedia.org"];
 
+/** Browsers we can read/navigate via the address bar on Windows. */
+const BROWSER_PATTERNS = [
+  /chrome/i,
+  /msedge|microsoft edge/i,
+  /brave/i,
+  /vivaldi/i,
+  /opera/i,
+  /firefox/i,
+];
+
+function isSupportedBrowser(appName, exePath = "") {
+  const hay = `${appName ?? ""} ${exePath ?? ""}`.toLowerCase();
+  return BROWSER_PATTERNS.some((re) => re.test(hay));
+}
+
+/** True when the snapshot is a browser window (macOS url or Windows exe/name). */
+function isBrowserSnapshot(snapshot) {
+  if (snapshot?.url) return true;
+  return isSupportedBrowser(snapshot?.app, snapshot?.path ?? "");
+}
+
 const NEW_TAB_PATTERNS = [
   /^chrome:\/\/new[\w-]*tab/i,
   /^edge:\/\/new[\w-]*tab/i,
@@ -159,5 +180,7 @@ module.exports = {
   isOwnApp,
   isSystemApp,
   isSiteAllowed,
+  isSupportedBrowser,
+  isBrowserSnapshot,
   ALWAYS_ALLOWED_HOSTS,
 };
