@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("node:path");
+const { isAllowedFocusApp } = require("./app-match.cjs");
+const { createFocusWindow } = require("./focus-window.cjs");
 
 const isDev = process.env.NODE_ENV === "development";
 const devUrl = process.env.NEXT_DEV_SERVER_URL;
@@ -18,18 +20,67 @@ function isOurApp(info) {
 }
 
 let activeWindowFn = null;
-async function getActiveWindowFn() {
+let openWindowsFn = null;
+async function getWindowsModule() {
   if (!activeWindowFn) {
     const mod = await import("get-windows");
     activeWindowFn = mod.activeWindow;
+    openWindowsFn = mod.openWindows;
   }
-  return activeWindowFn;
+  return { activeWindow: activeWindowFn, openWindows: openWindowsFn };
 }
 
 let lastSnapshot = null;
 let lastError = null;
+let focusSession = { active: false, allowedApps: [] };
+let lastAllowedWindowId = null;
+let lastRestoreAt = 0;
+const RESTORE_COOLDOWN_MS = 1200;
+
+const { focusWindowById } = createFocusWindow();
+
+function snapshotFromInfo(info) {
+  return {
+    app: info.owner.name,
+    title: info.title ?? "",
+    url: info.url ?? null,
+    bundleId: info.owner?.bundleId ?? null,
+    path: info.owner?.path ?? null,
+    windowId: typeof info.id === "number" ? info.id : null,
+  };
+}
+
+async function focusFirstAllowedWindow() {
+  if (lastAllowedWindowId && focusWindowById(lastAllowedWindowId)) {
+    return lastAllowedWindowId;
+  }
+
+  const { openWindows } = await getWindowsModule();
+  const windows = await openWindows();
+  for (const win of windows) {
+    if (!win?.owner?.name || isOurApp(win)) continue;
+    const snap = snapshotFromInfo(win);
+    if (!isAllowedFocusApp(snap, focusSession.allowedApps)) continue;
+    if (typeof win.id !== "number") continue;
+    if (focusWindowById(win.id)) {
+      lastAllowedWindowId = win.id;
+      return win.id;
+    }
+  }
+  return null;
+}
 
 ipcMain.handle("active-app:get", () => ({ snapshot: lastSnapshot, error: lastError }));
+
+ipcMain.on("focus-session:sync", (_e, payload) => {
+  focusSession = {
+    active: Boolean(payload?.active),
+    allowedApps: Array.isArray(payload?.allowedApps) ? payload.allowedApps : [],
+  };
+  if (!focusSession.active) {
+    lastAllowedWindowId = null;
+  }
+});
 
 function startActiveAppPolling(win) {
   let lastKey = null;
@@ -39,21 +90,38 @@ function startActiveAppPolling(win) {
   async function poll() {
     if (stopped || win.isDestroyed()) return;
     try {
-      const activeWindow = await getActiveWindowFn();
+      const { activeWindow } = await getWindowsModule();
       const info = await activeWindow();
       if (info?.owner?.name) {
-        const appName = info.owner.name;
-        // Ignore our own window — keep showing the last external app in the UI.
-        if (!isOurApp(info)) {
-          const snapshot = {
-            app: appName,
-            title: info.title ?? "",
-            url: info.url ?? null,
-            bundleId: info.owner?.bundleId ?? null,
-            path: info.owner?.path ?? null,
-          };
-          // Include title in the dedupe key so tab/window switches inside
-          // the same app still fire updates (e.g. switching VSCode files).
+        const snapshot = snapshotFromInfo(info);
+
+        const ownApp = isOurApp(info);
+        const allowed =
+          !ownApp && isAllowedFocusApp(snapshot, focusSession.allowedApps);
+
+        if (
+          focusSession.active &&
+          process.platform === "win32" &&
+          !ownApp &&
+          !allowed &&
+          Date.now() - lastRestoreAt > RESTORE_COOLDOWN_MS
+        ) {
+          const focusedId = await focusFirstAllowedWindow();
+          lastRestoreAt = Date.now();
+          if (focusedId && !win.isDestroyed()) {
+            win.webContents.send("focus:restored", {
+              windowId: focusedId,
+              blocked: snapshot.app,
+            });
+            return;
+          }
+        }
+
+        if (!ownApp) {
+          if (allowed && typeof info.id === "number") {
+            lastAllowedWindowId = info.id;
+          }
+
           lastSnapshot = snapshot;
           const key = `${snapshot.app}|${snapshot.url ?? ""}|${snapshot.title}`;
           if (key !== lastKey) {

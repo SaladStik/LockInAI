@@ -91,6 +91,23 @@ export function LockInPopup() {
   const skinLabel = streakSkinLabel(skin);
   const { snapshot: activeApp, error: activeAppError } = useActiveApp();
 
+  // Tell the main process which apps are allowed so it can snap back on Windows.
+  useEffect(() => {
+    if (!hasNativeAppDetection) return;
+    window.electronAPI?.syncFocusSession(screen === "focus", apps);
+    if (screen !== "focus") focusAllowedRef.current = true;
+  }, [screen, apps, hasNativeAppDetection]);
+
+  useEffect(() => {
+    if (!hasNativeAppDetection) return;
+    const off = window.electronAPI?.onFocusRestored(() => {
+      focusAllowedRef.current = true;
+      setBreach(false);
+    });
+    return () => off?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasNativeAppDetection]);
+
   // Tick the focus timer
   useEffect(() => {
     if (screen !== "focus") return;

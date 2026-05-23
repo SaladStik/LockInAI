@@ -7,6 +7,8 @@ export type ActiveAppSnapshot = {
   bundleId: string | null;
   /** Windows/Linux: path to the owning process executable */
   path: string | null;
+  /** Windows: HWND used to restore focus to this window */
+  windowId: number | null;
 };
 
 export type ActiveAppError = {
@@ -24,6 +26,10 @@ declare global {
       onActiveAppError: (cb: (error: ActiveAppError) => void) => () => void;
       getCurrentActiveApp: () => Promise<{ snapshot: ActiveAppSnapshot | null; error: ActiveAppError }>;
       openAccessibilitySettings: () => void;
+      syncFocusSession: (active: boolean, allowedApps: string[]) => void;
+      onFocusRestored: (
+        cb: (payload: { windowId: number; blocked: string }) => void,
+      ) => () => void;
     };
   }
 }

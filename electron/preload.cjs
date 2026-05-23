@@ -16,4 +16,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("active-app:error", listener);
   },
   openAccessibilitySettings: () => ipcRenderer.send("open:accessibility-settings"),
+  syncFocusSession: (active, allowedApps) =>
+    ipcRenderer.send("focus-session:sync", { active, allowedApps }),
+  onFocusRestored: (cb) => {
+    const listener = (_event, payload) => cb(payload);
+    ipcRenderer.on("focus:restored", listener);
+    return () => ipcRenderer.removeListener("focus:restored", listener);
+  },
 });
