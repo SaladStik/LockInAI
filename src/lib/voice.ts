@@ -124,22 +124,14 @@ function speakWithVoice(
   if (!isBrowser()) return;
   try {
     window.speechSynthesis.cancel();
-    const queue = () => {
-      const u = new SpeechSynthesisUtterance(text);
-      if (voice) u.voice = voice;
-      u.rate = opts.rate ?? 0.95;
-      u.pitch = opts.pitch ?? 1.05;
-      u.volume = 1;
-      u.onstart = () => console.log("[voice] start:", voice?.name ?? "(default)");
-      u.onend = () => console.log("[voice] end");
-      u.onerror = (ev) => console.warn("[voice] error:", ev.error);
-      console.log("[voice] queueing:", { voice: voice?.name, text, voicesCount: window.speechSynthesis.getVoices().length });
-      window.speechSynthesis.speak(u);
-    };
-    // Chromium can drop a speak() that arrives in the same tick as cancel().
-    setTimeout(queue, 80);
-  } catch (e) {
-    console.warn("[voice] speak threw:", e);
+    const u = new SpeechSynthesisUtterance(text);
+    if (voice) u.voice = voice;
+    u.rate = opts.rate ?? 0.95;
+    u.pitch = opts.pitch ?? 1.05;
+    u.volume = 1;
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* ignore */
   }
 }
 

@@ -30,7 +30,6 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
   }
 
   function preview(voiceURI: string | null) {
-    console.log("[preview] click", { voiceURI });
     previewVoice(SAMPLE_PHRASE, voiceURI);
   }
 
