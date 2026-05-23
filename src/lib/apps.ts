@@ -25,6 +25,48 @@ const OUR_APP_PATTERNS = [
   /lock\/\/in/i,
 ];
 
+// System utilities the user always needs unrestricted access to.
+const SYSTEM_BUNDLE_IDS = new Set([
+  "com.apple.finder",
+  "com.apple.systempreferences",
+  "com.apple.ActivityMonitor",
+  "com.apple.dock",
+  "com.apple.controlcenter",
+  "com.apple.notificationcenterui",
+  "com.apple.WindowManager",
+  "com.apple.Spotlight",
+]);
+
+const SYSTEM_NAME_PATTERNS = [
+  /^Finder$/i,
+  /^System Settings$/i,
+  /^System Preferences$/i,
+  /^Activity Monitor$/i,
+  /^Windows Explorer$/i,
+  /^File Explorer$/i,
+  /^Task Manager$/i,
+  /^Settings$/i,
+  /^Control Panel$/i,
+];
+
+const SYSTEM_EXE_PATTERNS = [
+  /\\explorer\.exe$/i,
+  /\\taskmgr\.exe$/i,
+  /\\systemsettings\.exe$/i,
+  /\\control\.exe$/i,
+  /\\mmc\.exe$/i,
+];
+
+export function isSystemApp(snapshot: ActiveAppSnapshot): boolean {
+  const name = snapshot.app ?? "";
+  const path = snapshot.path ?? "";
+  const bundleId = snapshot.bundleId ?? "";
+  if (bundleId && SYSTEM_BUNDLE_IDS.has(bundleId)) return true;
+  if (SYSTEM_NAME_PATTERNS.some((re) => re.test(name))) return true;
+  if (SYSTEM_EXE_PATTERNS.some((re) => re.test(path))) return true;
+  return false;
+}
+
 export function isOwnApp(snapshot: ActiveAppSnapshot): boolean {
   const name = snapshot.app ?? "";
   const path = snapshot.path ?? "";
@@ -39,6 +81,7 @@ export function isAllowedFocusApp(
   allowedApps: string[],
 ): boolean {
   if (isOwnApp(snapshot)) return true;
+  if (isSystemApp(snapshot)) return true;
 
   const app = snapshot.app ?? "";
   const path = snapshot.path ?? "";
@@ -50,6 +93,7 @@ export function isAllowedFocusApp(
     if (EXE_MATCHERS[label]?.some((re) => re.test(path))) return true;
     // Browser-only allowances (YouTube has no stable Windows process name).
     if (label === "YouTube" && /youtube/i.test(title)) return true;
+    return false;
   });
 }
 
