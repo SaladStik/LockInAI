@@ -28,7 +28,11 @@ declare global {
       openAccessibilitySettings: () => void;
       syncFocusSession: (active: boolean, allowedApps: string[]) => void;
       onFocusRestored: (
-        cb: (payload: { windowId: number; blocked: string }) => void,
+        cb: (payload: {
+          windowId: number | null;
+          blocked: string;
+          refocused?: string;
+        }) => void,
       ) => () => void;
     };
   }

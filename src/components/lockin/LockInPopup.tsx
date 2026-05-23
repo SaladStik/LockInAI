@@ -91,7 +91,7 @@ export function LockInPopup() {
   const skinLabel = streakSkinLabel(skin);
   const { snapshot: activeApp, error: activeAppError } = useActiveApp();
 
-  // Tell the main process which apps are allowed so it can snap back on Windows.
+  // Tell the main process which apps are allowed so it can snap back during focus.
   useEffect(() => {
     if (!hasNativeAppDetection) return;
     window.electronAPI?.syncFocusSession(screen === "focus", apps);

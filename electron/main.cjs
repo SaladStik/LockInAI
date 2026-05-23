@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { exec } = require("node:child_process");
 const path = require("node:path");
 const { isAllowedFocusApp } = require("./app-match.cjs");
 const { createFocusWindow } = require("./focus-window.cjs");
@@ -70,8 +71,33 @@ async function focusFirstAllowedWindow() {
   return null;
 }
 
+// Focus-session enforcement: when enabled, the main process auto-refocuses the
+// previous allowed app whenever the user lands on something off the list.
+let enforcement = { enforced: false, allowedApps: [] };
+let lastAllowedAppName = null; // the macOS-reported app name (e.g. "Google Chrome")
+let lastActivationAt = 0;
+
+function isAllowedApp(appName) {
+  if (!enforcement.allowedApps.length) return false;
+  const lower = appName.toLowerCase();
+  return enforcement.allowedApps.some((label) => {
+    const l = String(label).toLowerCase();
+    if (!l) return false;
+    return lower.includes(l) || l.includes(lower);
+  });
+}
+
+function activateApp(appName) {
+  if (process.platform !== "darwin") return;
+  const safe = appName.replace(/"/g, '\\"');
+  exec(`osascript -e 'tell application "${safe}" to activate'`, (err) => {
+    if (err) console.error("[enforcement] activate error:", err.message);
+  });
+}
+
 ipcMain.handle("active-app:get", () => ({ snapshot: lastSnapshot, error: lastError }));
 
+<<<<<<< HEAD
 ipcMain.on("focus-session:sync", (_e, payload) => {
   focusSession = {
     active: Boolean(payload?.active),
@@ -80,6 +106,13 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
   if (!focusSession.active) {
     lastAllowedWindowId = null;
   }
+=======
+ipcMain.on("enforcement:set", (_e, payload) => {
+  const enabled = !!payload?.enforced;
+  const apps = Array.isArray(payload?.allowedApps) ? payload.allowedApps : [];
+  enforcement = { enforced: enabled, allowedApps: apps };
+  if (!enabled) lastAllowedAppName = null;
+>>>>>>> 3465dec726043161251a06e48d4738b203216ba0
 });
 
 function startActiveAppPolling(win) {
@@ -132,6 +165,26 @@ function startActiveAppPolling(win) {
             lastErrorSent = null;
             lastError = null;
             if (!win.isDestroyed()) win.webContents.send("active-app:error", null);
+          }
+
+          // Enforcement: track the last allowed app the user was actually in,
+          // and snap focus back to it whenever they land on a disallowed one.
+          if (enforcement.enforced) {
+            if (isAllowedApp(appName)) {
+              lastAllowedAppName = appName;
+            } else if (lastAllowedAppName && lastAllowedAppName !== appName) {
+              const now = Date.now();
+              if (now - lastActivationAt > 1200) {
+                lastActivationAt = now;
+                activateApp(lastAllowedAppName);
+                if (!win.isDestroyed()) {
+                  win.webContents.send("enforcement:breach", {
+                    detected: appName,
+                    refocused: lastAllowedAppName,
+                  });
+                }
+              }
+            }
           }
         }
       }
