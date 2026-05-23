@@ -17,8 +17,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   openAccessibilitySettings: () => ipcRenderer.send("open:accessibility-settings"),
   openScreenRecordingSettings: () => ipcRenderer.send("open:screen-recording-settings"),
-  syncFocusSession: (active, allowedApps) =>
-    ipcRenderer.send("focus-session:sync", { active, allowedApps }),
+  syncFocusSession: (active, allowedApps, allowedSites) =>
+    ipcRenderer.send("focus-session:sync", { active, allowedApps, allowedSites }),
   onFocusRestored: (cb) => {
     const listener = (_event, payload) => cb(payload);
     ipcRenderer.on("focus:restored", listener);
@@ -28,5 +28,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     list: () => ipcRenderer.invoke("custom-apps:list"),
     add: (name) => ipcRenderer.invoke("custom-apps:add", name),
     remove: (id) => ipcRenderer.invoke("custom-apps:remove", id),
+  },
+  customSites: {
+    list: () => ipcRenderer.invoke("custom-sites:list"),
+    add: (host) => ipcRenderer.invoke("custom-sites:add", host),
+    remove: (id) => ipcRenderer.invoke("custom-sites:remove", id),
   },
 });

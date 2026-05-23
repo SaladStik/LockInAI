@@ -22,6 +22,12 @@ export type CustomApp = {
   created_at?: number;
 };
 
+export type CustomSite = {
+  id: number;
+  host: string;
+  created_at?: number;
+};
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -36,7 +42,11 @@ declare global {
       }>;
       openAccessibilitySettings: () => void;
       openScreenRecordingSettings: () => void;
-      syncFocusSession: (active: boolean, allowedApps: string[]) => void;
+      syncFocusSession: (
+        active: boolean,
+        allowedApps: string[],
+        allowedSites: string[],
+      ) => void;
       onFocusRestored: (
         cb: (payload: {
           windowId: number | null;
@@ -47,6 +57,11 @@ declare global {
       customApps: {
         list: () => Promise<CustomApp[]>;
         add: (name: string) => Promise<CustomApp | null>;
+        remove: (id: number) => Promise<boolean>;
+      };
+      customSites: {
+        list: () => Promise<CustomSite[]>;
+        add: (host: string) => Promise<CustomSite | null>;
         remove: (id: number) => Promise<boolean>;
       };
     };

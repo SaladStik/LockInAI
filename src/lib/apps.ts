@@ -1,6 +1,5 @@
 import type { ActiveAppSnapshot } from "@/types/electron";
 
-/** Friendly labels shown in the setup UI → patterns for OS-reported names/paths. */
 const APP_MATCHERS: Record<string, RegExp[]> = {
   Chrome: [/chrome/i, /google chrome/i],
   VSCode: [/visual studio code/i, /^code$/i, /cursor/i, /vscode/i],
@@ -19,13 +18,8 @@ const EXE_MATCHERS: Record<string, RegExp[]> = {
   Spotify: [/\\spotify\.exe$/i],
 };
 
-const OUR_APP_PATTERNS = [
-  /electron/i,
-  /lockin/i,
-  /lock\/\/in/i,
-];
+const OUR_APP_PATTERNS = [/electron/i, /lockin/i, /lock\/\/in/i];
 
-// System utilities the user always needs unrestricted access to.
 const SYSTEM_BUNDLE_IDS = new Set([
   "com.apple.finder",
   "com.apple.systempreferences",
@@ -57,6 +51,19 @@ const SYSTEM_EXE_PATTERNS = [
   /\\mmc\.exe$/i,
 ];
 
+export const ALWAYS_ALLOWED_HOSTS = ["google.com", "wikipedia.org"];
+
+const NEW_TAB_PATTERNS = [
+  /^chrome:\/\/new[\w-]*tab/i,
+  /^edge:\/\/new[\w-]*tab/i,
+  /^arc:\/\/(new[\w-]*tab|space)/i,
+  /^brave:\/\/new[\w-]*tab/i,
+  /^vivaldi:\/\/(start|new[\w-]*tab)/i,
+  /^opera:\/\/(start|new[\w-]*tab)/i,
+  /^about:(blank|newtab|home|new[\w-]*tab)/i,
+  /^firefox-newtab/i,
+];
+
 export function isSystemApp(snapshot: ActiveAppSnapshot): boolean {
   const name = snapshot.app ?? "";
   const path = snapshot.path ?? "";
@@ -76,9 +83,44 @@ export function isOwnApp(snapshot: ActiveAppSnapshot): boolean {
   );
 }
 
+/** Decide whether the URL the user is on is allowed. */
+export function isSiteAllowed(
+  url: string | null | undefined,
+  allowedSites: string[] = [],
+): boolean {
+  if (!url) return true;
+  if (NEW_TAB_PATTERNS.some((re) => re.test(url))) return true;
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return true;
+  }
+  if (!host) return true;
+  const allChecks = [
+    ...ALWAYS_ALLOWED_HOSTS,
+    ...allowedSites.map((s) => s.toLowerCase().replace(/^www\./, "")),
+  ];
+  return allChecks.some((h) => {
+    if (!h) return false;
+    return host === h || host.endsWith(`.${h}`);
+  });
+}
+
+/** Extract the bare hostname from a snapshot URL (e.g. "github.com"). */
+export function hostnameOf(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "").toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
 export function isAllowedFocusApp(
   snapshot: ActiveAppSnapshot,
   allowedApps: string[],
+  allowedSites: string[] = [],
 ): boolean {
   if (isOwnApp(snapshot)) return true;
   if (isSystemApp(snapshot)) return true;
@@ -87,14 +129,19 @@ export function isAllowedFocusApp(
   const path = snapshot.path ?? "";
   const title = snapshot.title ?? "";
 
-  return allowedApps.some((label) => {
+  const appAllowed = allowedApps.some((label) => {
     const patterns = APP_MATCHERS[label] ?? [new RegExp(label, "i")];
     if (patterns.some((re) => re.test(app) || re.test(path))) return true;
     if (EXE_MATCHERS[label]?.some((re) => re.test(path))) return true;
-    // Browser-only allowances (YouTube has no stable Windows process name).
     if (label === "YouTube" && /youtube/i.test(title)) return true;
     return false;
   });
+  if (!appAllowed) return false;
+
+  if (snapshot.url) {
+    return isSiteAllowed(snapshot.url, allowedSites);
+  }
+  return true;
 }
 
 export function formatDetectedApp(snapshot: ActiveAppSnapshot): string {

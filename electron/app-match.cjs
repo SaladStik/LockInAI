@@ -1,4 +1,12 @@
-/** @typedef {{ app: string, title?: string, path?: string | null, bundleId?: string | null }} AppSnapshot */
+/**
+ * @typedef {{
+ *   app: string,
+ *   title?: string,
+ *   path?: string | null,
+ *   bundleId?: string | null,
+ *   url?: string | null
+ * }} AppSnapshot
+ */
 
 const APP_MATCHERS = {
   Chrome: [/chrome/i, /google chrome/i],
@@ -20,10 +28,7 @@ const EXE_MATCHERS = {
 
 const OUR_APP_PATTERNS = [/electron/i, /lockin/i, /lock\/\/in/i];
 
-// System utilities the user always needs unrestricted access to — never trigger
-// a refocus or breach even if they aren't on the allowed list.
 const SYSTEM_BUNDLE_IDS = new Set([
-  // macOS
   "com.apple.finder",
   "com.apple.systempreferences",
   "com.apple.ActivityMonitor",
@@ -35,12 +40,10 @@ const SYSTEM_BUNDLE_IDS = new Set([
 ]);
 
 const SYSTEM_NAME_PATTERNS = [
-  // macOS
   /^Finder$/i,
   /^System Settings$/i,
   /^System Preferences$/i,
   /^Activity Monitor$/i,
-  // Windows
   /^Windows Explorer$/i,
   /^File Explorer$/i,
   /^Task Manager$/i,
@@ -54,6 +57,20 @@ const SYSTEM_EXE_PATTERNS = [
   /\\systemsettings\.exe$/i,
   /\\control\.exe$/i,
   /\\mmc\.exe$/i,
+];
+
+// Sites the user can always reach — search, reference, browser new-tab pages.
+const ALWAYS_ALLOWED_HOSTS = ["google.com", "wikipedia.org"];
+
+const NEW_TAB_PATTERNS = [
+  /^chrome:\/\/new[\w-]*tab/i,
+  /^edge:\/\/new[\w-]*tab/i,
+  /^arc:\/\/(new[\w-]*tab|space)/i,
+  /^brave:\/\/new[\w-]*tab/i,
+  /^vivaldi:\/\/(start|new[\w-]*tab)/i,
+  /^opera:\/\/(start|new[\w-]*tab)/i,
+  /^about:(blank|newtab|home|new[\w-]*tab)/i,
+  /^firefox-newtab/i,
 ];
 
 /** @param {AppSnapshot} snapshot */
@@ -77,8 +94,39 @@ function isOwnApp(snapshot) {
   );
 }
 
-/** @param {AppSnapshot} snapshot @param {string[]} allowedApps */
-function isAllowedFocusApp(snapshot, allowedApps) {
+/**
+ * Decide whether the URL the user is on is allowed.
+ * No URL → not in a browser context, defer to the app check.
+ * @param {string | null | undefined} url
+ * @param {string[]} allowedSites — user-picked hostnames
+ */
+function isSiteAllowed(url, allowedSites = []) {
+  if (!url) return true;
+  if (NEW_TAB_PATTERNS.some((re) => re.test(url))) return true;
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    // Unparseable URL — fail open, otherwise weird internal pages break flow.
+    return true;
+  }
+  if (!host) return true;
+  const allChecks = [
+    ...ALWAYS_ALLOWED_HOSTS,
+    ...allowedSites.map((s) => String(s).toLowerCase().replace(/^www\./, "")),
+  ];
+  return allChecks.some((h) => {
+    if (!h) return false;
+    return host === h || host.endsWith(`.${h}`);
+  });
+}
+
+/**
+ * @param {AppSnapshot} snapshot
+ * @param {string[]} allowedApps
+ * @param {string[]} [allowedSites]
+ */
+function isAllowedFocusApp(snapshot, allowedApps, allowedSites = []) {
   if (isOwnApp(snapshot)) return true;
   if (isSystemApp(snapshot)) return true;
 
@@ -86,13 +134,27 @@ function isAllowedFocusApp(snapshot, allowedApps) {
   const path = snapshot.path ?? "";
   const title = snapshot.title ?? "";
 
-  return allowedApps.some((label) => {
+  const appAllowed = allowedApps.some((label) => {
     const patterns = APP_MATCHERS[label] ?? [new RegExp(label, "i")];
     if (patterns.some((re) => re.test(app) || re.test(path))) return true;
     if (EXE_MATCHERS[label]?.some((re) => re.test(path))) return true;
     if (label === "YouTube" && /youtube/i.test(title)) return true;
     return false;
   });
+  if (!appAllowed) return false;
+
+  // App is allowed. If this is a browser with a captured URL, the site must
+  // also be on the allowed list (or be an always-allowed default).
+  if (snapshot.url) {
+    return isSiteAllowed(snapshot.url, allowedSites);
+  }
+  return true;
 }
 
-module.exports = { isAllowedFocusApp, isOwnApp, isSystemApp };
+module.exports = {
+  isAllowedFocusApp,
+  isOwnApp,
+  isSystemApp,
+  isSiteAllowed,
+  ALWAYS_ALLOWED_HOSTS,
+};

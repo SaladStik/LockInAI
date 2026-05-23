@@ -1,8 +1,11 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
-const { execFileSync } = require("node:child_process");
+const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
+const execFileAsync = promisify(execFile);
+const OSASCRIPT_TIMEOUT_MS = 2000;
 const path = require("node:path");
 const db = require("./db.cjs");
-const { isAllowedFocusApp } = require("./app-match.cjs");
+const { isAllowedFocusApp, isSiteAllowed } = require("./app-match.cjs");
 const { createFocusWindow } = require("./focus-window.cjs");
 
 const isDev = process.env.NODE_ENV === "development";
@@ -34,11 +37,91 @@ async function getWindowsModule() {
 
 let lastSnapshot = null;
 let lastError = null;
-let focusSession = { active: false, allowedApps: [] };
+let focusSession = { active: false, allowedApps: [], allowedSites: [] };
 let lastAllowedWindowId = null; // Windows HWND
 let lastAllowedAppName = null; // macOS app name (for osascript fallback)
+let lastAllowedUrl = null; // for browser tab restoration
 let lastRestoreAt = 0;
 const RESTORE_COOLDOWN_MS = 1200;
+
+// macOS browsers that support AppleScript URL setting. Map from the OS-reported
+// owner.name to whether they expect "current tab" (Safari) or "active tab".
+const BROWSER_TAB_ACCESSORS = {
+  "Google Chrome": "active tab of front window",
+  "Google Chrome Canary": "active tab of front window",
+  "Google Chrome Dev": "active tab of front window",
+  "Google Chrome Beta": "active tab of front window",
+  Chromium: "active tab of front window",
+  "Microsoft Edge": "active tab of front window",
+  "Brave Browser": "active tab of front window",
+  "Brave Browser Nightly": "active tab of front window",
+  Vivaldi: "active tab of front window",
+  Arc: "active tab of front window",
+  Opera: "active tab of front window",
+  Safari: "current tab of front window",
+  "Safari Technology Preview": "current tab of front window",
+};
+
+async function runOsascript(script) {
+  try {
+    const { stdout } = await execFileAsync("/usr/bin/osascript", ["-e", script], {
+      timeout: OSASCRIPT_TIMEOUT_MS,
+    });
+    return { ok: true, stdout: String(stdout ?? "") };
+  } catch (e) {
+    return { ok: false, error: e };
+  }
+}
+
+async function restoreBrowserTab(appName, targetUrl) {
+  if (process.platform !== "darwin" || !appName || !targetUrl) return false;
+  const accessor = BROWSER_TAB_ACCESSORS[appName];
+  if (!accessor) return false;
+  const safeApp = appName.replace(/"/g, '\\"');
+  const safeUrl = targetUrl.replace(/"/g, '\\"');
+  const r = await runOsascript(
+    `tell application "${safeApp}" to set URL of ${accessor} to "${safeUrl}"`,
+  );
+  if (!r.ok) console.error("[focus] tab restore error:", r.error?.message);
+  return r.ok;
+}
+
+/** List the URLs of every tab in the browser's front window. */
+async function getBrowserTabUrls(appName) {
+  if (process.platform !== "darwin") return null;
+  if (!BROWSER_TAB_ACCESSORS[appName]) return null;
+  // Safari uses a different tab object model — skip for now.
+  if (/Safari/.test(appName)) return null;
+  const safeApp = appName.replace(/"/g, '\\"');
+  // \\u001E is RS (record separator) — unlikely to appear in URLs, easy to split.
+  const script =
+    `tell application "${safeApp}"\n` +
+    `set AppleScript's text item delimiters to (ASCII character 30)\n` +
+    `return (URL of every tab of front window) as text\n` +
+    `end tell`;
+  const r = await runOsascript(script);
+  if (!r.ok) return null;
+  const out = r.stdout.trim();
+  if (!out) return [];
+  try {
+    return out.split("").map((s) => s.trim());
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Switch the browser's front window to the given 1-based tab index. */
+async function switchToBrowserTab(appName, tabIndex) {
+  if (process.platform !== "darwin") return false;
+  if (!BROWSER_TAB_ACCESSORS[appName]) return false;
+  if (/Safari/.test(appName)) return false;
+  const safeApp = appName.replace(/"/g, '\\"');
+  const r = await runOsascript(
+    `tell application "${safeApp}" to set active tab index of front window to ${tabIndex}`,
+  );
+  if (!r.ok) console.error("[focus] switch tab error:", r.error?.message);
+  return r.ok;
+}
 
 const { focusWindowById } = createFocusWindow();
 
@@ -53,20 +136,12 @@ function snapshotFromInfo(info) {
   };
 }
 
-function activateMacApp(appName) {
+async function activateMacApp(appName) {
   if (process.platform !== "darwin" || !appName) return false;
   const safe = appName.replace(/"/g, '\\"');
-  try {
-    execFileSync(
-      "/usr/bin/osascript",
-      ["-e", `tell application "${safe}" to activate`],
-      { stdio: "pipe" },
-    );
-    return true;
-  } catch (e) {
-    console.error("[focus] activate error:", e?.message);
-    return false;
-  }
+  const r = await runOsascript(`tell application "${safe}" to activate`);
+  if (!r.ok) console.error("[focus] activate error:", r.error?.message);
+  return r.ok;
 }
 
 async function refocusLastAllowed() {
@@ -76,7 +151,7 @@ async function refocusLastAllowed() {
   }
   // macOS: activate the app by name via osascript.
   if (process.platform === "darwin" && lastAllowedAppName) {
-    if (activateMacApp(lastAllowedAppName)) {
+    if (await activateMacApp(lastAllowedAppName)) {
       return { windowId: null, refocused: lastAllowedAppName };
     }
   }
@@ -87,12 +162,12 @@ async function refocusLastAllowed() {
     for (const w of windows) {
       if (!w?.owner?.name || isOurApp(w)) continue;
       const snap = snapshotFromInfo(w);
-      if (!isAllowedFocusApp(snap, focusSession.allowedApps)) continue;
+      if (!isAllowedFocusApp(snap, focusSession.allowedApps, focusSession.allowedSites)) continue;
       if (typeof w.id === "number" && focusWindowById(w.id)) {
         lastAllowedWindowId = w.id;
         return { windowId: w.id, refocused: null };
       }
-      if (process.platform === "darwin" && activateMacApp(snap.app)) {
+      if (process.platform === "darwin" && (await activateMacApp(snap.app))) {
         lastAllowedAppName = snap.app;
         return { windowId: null, refocused: snap.app };
       }
@@ -109,10 +184,12 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
   focusSession = {
     active: Boolean(payload?.active),
     allowedApps: Array.isArray(payload?.allowedApps) ? payload.allowedApps : [],
+    allowedSites: Array.isArray(payload?.allowedSites) ? payload.allowedSites : [],
   };
   if (!focusSession.active) {
     lastAllowedWindowId = null;
     lastAllowedAppName = null;
+    lastAllowedUrl = null;
   }
 });
 
@@ -131,7 +208,8 @@ function startActiveAppPolling(win) {
 
         const ownApp = isOurApp(info);
         const allowed =
-          !ownApp && isAllowedFocusApp(snapshot, focusSession.allowedApps);
+          !ownApp &&
+          isAllowedFocusApp(snapshot, focusSession.allowedApps, focusSession.allowedSites);
 
         // During a focus session, snap back to the last allowed window whenever
         // the user lands on something off the list. Don't `return` after — the
@@ -144,12 +222,53 @@ function startActiveAppPolling(win) {
           Date.now() - lastRestoreAt > RESTORE_COOLDOWN_MS
         ) {
           lastRestoreAt = Date.now();
-          const result = await refocusLastAllowed();
-          if (result && !win.isDestroyed()) {
+          // If we're in a known browser, try to switch to an already-open
+          // allowed tab. Falls back to URL navigation if no allowed tab exists.
+          const inBrowser =
+            !!snapshot.url && BROWSER_TAB_ACCESSORS[snapshot.app] !== undefined;
+          let restored = null;
+          if (inBrowser) {
+            const urls = await getBrowserTabUrls(snapshot.app);
+            if (urls && urls.length) {
+              const currentIndex = urls.findIndex((u) => u === snapshot.url);
+              // 1. Prefer the exact tab they were last allowed on.
+              let targetIndex = lastAllowedUrl
+                ? urls.findIndex(
+                    (u, i) => i !== currentIndex && u === lastAllowedUrl,
+                  )
+                : -1;
+              // 2. Otherwise pick any other allowed tab in this window.
+              if (targetIndex < 0) {
+                targetIndex = urls.findIndex(
+                  (u, i) =>
+                    i !== currentIndex &&
+                    isSiteAllowed(u, focusSession.allowedSites),
+                );
+              }
+              if (targetIndex >= 0) {
+                if (await switchToBrowserTab(snapshot.app, targetIndex + 1)) {
+                  restored = { windowId: null, refocused: urls[targetIndex] };
+                }
+              }
+            }
+            // No allowed tab open — navigate the offending tab to a safe URL.
+            if (!restored && lastAllowedUrl) {
+              if (await restoreBrowserTab(snapshot.app, lastAllowedUrl)) {
+                restored = { windowId: null, refocused: lastAllowedUrl };
+              }
+            }
+            if (!restored) {
+              if (await restoreBrowserTab(snapshot.app, "https://www.google.com/")) {
+                restored = { windowId: null, refocused: "google.com" };
+              }
+            }
+          }
+          if (!restored) restored = await refocusLastAllowed();
+          if (restored && !win.isDestroyed()) {
             win.webContents.send("focus:restored", {
-              windowId: result.windowId,
-              blocked: snapshot.app,
-              refocused: result.refocused ?? undefined,
+              windowId: restored.windowId,
+              blocked: snapshot.url ?? snapshot.app,
+              refocused: restored.refocused ?? undefined,
             });
           }
         }
@@ -158,6 +277,7 @@ function startActiveAppPolling(win) {
           if (allowed) {
             if (typeof info.id === "number") lastAllowedWindowId = info.id;
             lastAllowedAppName = snapshot.app;
+            if (snapshot.url) lastAllowedUrl = snapshot.url;
           }
 
           lastSnapshot = snapshot;
@@ -187,10 +307,10 @@ function startActiveAppPolling(win) {
         /Command failed/.test(e?.message ?? "")
       ) {
         try {
-          execFileSync(
+          await execFileAsync(
             path.join(__dirname, "..", "node_modules", "get-windows", "main"),
             [],
-            { stdio: "pipe" },
+            { timeout: OSASCRIPT_TIMEOUT_MS },
           );
         } catch (probe) {
           if (probe?.stderr) stderr = probe.stderr.toString();
@@ -296,6 +416,10 @@ ipcMain.on("window:maximize", (e) => {
 ipcMain.handle("custom-apps:list", () => db.listCustomApps());
 ipcMain.handle("custom-apps:add", (_e, name) => db.addCustomApp(name));
 ipcMain.handle("custom-apps:remove", (_e, id) => db.removeCustomApp(id));
+
+ipcMain.handle("custom-sites:list", () => db.listCustomSites());
+ipcMain.handle("custom-sites:add", (_e, host) => db.addCustomSite(host));
+ipcMain.handle("custom-sites:remove", (_e, id) => db.removeCustomSite(id));
 
 ipcMain.on("open:accessibility-settings", () => {
   if (process.platform === "darwin") {
