@@ -12,7 +12,8 @@ const execFileAsync = promisify(execFile);
 const OSASCRIPT_TIMEOUT_MS = 2000;
 const path = require("node:path");
 const db = require("./db.cjs");
-const { isAllowedFocusApp, isSiteAllowed } = require("./app-match.cjs");
+const { isAllowedFocusApp, isSiteAllowed, ALWAYS_ALLOWED_HOSTS } = require("./app-match.cjs");
+const blockedServer = require("./blocked-server.cjs");
 const { createFocusWindow } = require("./focus-window.cjs");
 
 const isDev = process.env.NODE_ENV === "development";
@@ -44,6 +45,13 @@ function getPermissionsStatus() {
 }
 
 let permissionsRequestedOnce = false;
+let blockedPageBaseUrl = null; // set by blocked-server start
+
+function blockedPageUrlFor(allowedSites) {
+  if (!blockedPageBaseUrl) return "about:blank";
+  const sites = JSON.stringify(allowedSites ?? []);
+  return `${blockedPageBaseUrl}?sites=${encodeURIComponent(sites)}`;
+}
 
 /**
  * Trigger macOS permission prompts. Each prompt is one-shot per app install —
@@ -266,7 +274,10 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
         focusSession.allowedSites,
       );
       if (isBrowser && !allowedNow) {
-        restoreBrowserTab(lastSnapshot.app, "about:blank").catch((e) =>
+        restoreBrowserTab(
+          lastSnapshot.app,
+          blockedPageUrlFor(focusSession.allowedSites),
+        ).catch((e) =>
           console.error("[focus] start-clean nav failed:", e?.message),
         );
       }
@@ -545,8 +556,17 @@ ipcMain.on("open:screen-recording-settings", () => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   db.init(app.getPath("userData"));
+
+  try {
+    const { url } = await blockedServer.start({ alwaysAllowed: ALWAYS_ALLOWED_HOSTS });
+    blockedPageBaseUrl = url;
+    console.log("[blocked-server] listening at", url);
+  } catch (e) {
+    console.error("[blocked-server] failed to start:", e?.message ?? e);
+  }
+
   createWindow();
 
   // Trigger macOS permission prompts (Accessibility + Screen Recording) on

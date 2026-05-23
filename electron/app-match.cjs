@@ -71,6 +71,9 @@ const NEW_TAB_PATTERNS = [
   /^opera:\/\/(start|new[\w-]*tab)/i,
   /^about:(blank|newtab|home|new[\w-]*tab)/i,
   /^firefox-newtab/i,
+  // Our local "blocked" page is served by Electron's main process.
+  /^https?:\/\/127\.0\.0\.1:\d+\/blocked/i,
+  /^https?:\/\/localhost:\d+\/blocked/i,
 ];
 
 /** @param {AppSnapshot} snapshot */
