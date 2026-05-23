@@ -27,6 +27,7 @@ import {
   streakSkinLabel,
   type Achievement,
 } from "./achievements";
+import { isAllowedFocusApp } from "@/lib/apps";
 import { speak, setVoiceMuted, isVoiceMuted } from "@/lib/voice";
 
 type Screen =
@@ -82,6 +83,9 @@ export function LockInPopup() {
   const [breachCount, setBreachCount] = useState<number>(0);
   const MAX_BREACHES = 3;
   const breachTimer = useRef<number | null>(null);
+  const focusAllowedRef = useRef(true);
+  const hasNativeAppDetection =
+    typeof window !== "undefined" && Boolean(window.electronAPI);
 
   const skin = streakSkin(streak);
   const skinLabel = streakSkinLabel(skin);
@@ -117,24 +121,48 @@ export function LockInPopup() {
     return () => window.clearInterval(t);
   }, [screen, secondsLeft]);
 
-  // Real focus protection: detect tab/window leaving during a session.
+  // Focus protection: OS-level app detection in Electron (Windows/macOS/Linux).
   useEffect(() => {
-    if (screen !== "focus") return;
-    const onHidden = (reason: string) => {
-      triggerBreach(reason);
+    if (screen !== "focus" || !hasNativeAppDetection || !activeApp) return;
+
+    const allowed = isAllowedFocusApp(activeApp, apps);
+    if (allowed) {
+      focusAllowedRef.current = true;
+      return;
+    }
+
+    // Still on a disallowed app — only count one breach per leave.
+    if (!focusAllowedRef.current) return;
+    focusAllowedRef.current = false;
+
+    triggerBreach(activeApp.app);
+    setBreachCount((c) => {
+      const next = c + 1;
+      if (next >= MAX_BREACHES) {
+        window.setTimeout(() => emergencyExitNow(), 300);
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, activeApp, apps, hasNativeAppDetection]);
+
+  // Browser fallback when not running inside Electron.
+  useEffect(() => {
+    if (screen !== "focus" || hasNativeAppDetection) return;
+    const onHidden = () => {
+      triggerBreach("tab hidden");
       setBreachCount((c) => {
         const next = c + 1;
         if (next >= MAX_BREACHES) {
-          // auto-fail the session on too many breaches
           window.setTimeout(() => emergencyExitNow(), 300);
         }
         return next;
       });
     };
     const handleVisibility = () => {
-      if (document.visibilityState === "hidden") onHidden("tab hidden");
+      if (document.visibilityState === "hidden") onHidden();
     };
-    const handleBlur = () => onHidden("window blurred");
+    const handleBlur = () => onHidden();
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("blur", handleBlur);
     return () => {
@@ -142,7 +170,7 @@ export function LockInPopup() {
       window.removeEventListener("blur", handleBlur);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen]);
+  }, [screen, hasNativeAppDetection]);
 
   function triggerBreach(_reason?: string) {
     setBreach(true);
@@ -156,6 +184,7 @@ export function LockInPopup() {
     setEmergencyExit(false);
     setBreachCount(0);
     setBreach(false);
+    focusAllowedRef.current = true;
     setScreen("focus");
     setToast("LOCKED IN");
     window.setTimeout(() => setToast(null), 1800);
@@ -350,6 +379,8 @@ export function LockInPopup() {
                 xp={xp}
                 stage={stage}
                 warning={breach}
+                activeApp={activeApp}
+                appDetection={hasNativeAppDetection}
                 onEmergencyExit={emergencyExitNow}
                 breachCount={breachCount}
                 maxBreaches={MAX_BREACHES}
@@ -648,6 +679,8 @@ function FocusScreen({
   xp,
   stage,
   warning,
+  activeApp,
+  appDetection,
   onEmergencyExit,
   breachCount,
   maxBreaches,
@@ -662,12 +695,18 @@ function FocusScreen({
   xp: number;
   stage: number;
   warning: boolean;
+  activeApp: import("@/types/electron").ActiveAppSnapshot | null;
+  appDetection: boolean;
   onEmergencyExit: () => void;
   breachCount: number;
   maxBreaches: number;
   skin: import("./achievements").LockieSkin;
 }) {
   const lockieMood: LockieMood = warning ? "worried" : "focused";
+  const offApp =
+    appDetection &&
+    activeApp &&
+    !isAllowedFocusApp(activeApp, apps);
   return (
     <div className="flex h-full flex-col items-center">
       {/* Top bar with plant + streak */}
@@ -751,9 +790,15 @@ function FocusScreen({
           ))}
         </div>
         <p className="text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground/70">
-          {breachCount === 0
-            ? "focus protection active · stay in app"
-            : `${maxBreaches - breachCount} breach${maxBreaches - breachCount === 1 ? "" : "es"} remaining`}
+          {!appDetection
+            ? breachCount === 0
+              ? "focus protection active · stay in app"
+              : `${maxBreaches - breachCount} breach${maxBreaches - breachCount === 1 ? "" : "es"} remaining`
+            : offApp
+              ? `outside allowed apps · ${activeApp?.app ?? "unknown"}`
+              : breachCount === 0
+                ? `watching apps · ${activeApp?.app ?? "…"}`
+                : `${maxBreaches - breachCount} breach${maxBreaches - breachCount === 1 ? "" : "es"} remaining`}
         </p>
         <button
           onClick={onEmergencyExit}
@@ -1384,9 +1429,21 @@ function ActiveAppFooter({
       >
         <span className="h-1 w-1 rounded-full bg-warning" />
         <span className="font-mono text-[9px] uppercase tracking-[0.25em]">
-          grant accessibility →
+          {typeof navigator !== "undefined" && /win/i.test(navigator.platform)
+            ? "app detection unavailable →"
+            : "grant accessibility →"}
         </span>
       </button>
+    );
+  }
+
+  if (error?.kind === "unknown" && error.message) {
+    return (
+      <div className="absolute bottom-0 left-0 right-0 z-30 flex h-6 items-center justify-center gap-1.5 border-t border-warning/40 bg-warning/10 px-4 text-warning backdrop-blur-md">
+        <span className="truncate font-mono text-[9px] uppercase tracking-[0.2em]">
+          detection error · restart app
+        </span>
+      </div>
     );
   }
 
