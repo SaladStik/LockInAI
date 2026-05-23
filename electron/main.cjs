@@ -14,6 +14,7 @@ const path = require("node:path");
 const db = require("./db.cjs");
 const { isAllowedFocusApp, isSiteAllowed, ALWAYS_ALLOWED_HOSTS } = require("./app-match.cjs");
 const blockedServer = require("./blocked-server.cjs");
+const winTabs = require("./win-tabs.cjs");
 const { createFocusWindow } = require("./focus-window.cjs");
 
 const isDev = process.env.NODE_ENV === "development";
@@ -109,7 +110,8 @@ let focusSession = { active: false, allowedApps: [], allowedSites: [] };
 let sessionStartGraceKey = null;
 let lastAllowedWindowId = null; // Windows HWND
 let lastAllowedAppName = null; // macOS app name (for osascript fallback)
-let lastAllowedUrl = null; // for browser tab restoration
+let lastAllowedUrl = null; // for browser tab restoration (macOS)
+let lastAllowedTitle = null; // for Windows tab restoration (UIA exposes title, not URL)
 let lastRestoreAt = 0;
 const RESTORE_COOLDOWN_MS = 1200;
 
@@ -142,17 +144,30 @@ async function runOsascript(script) {
   }
 }
 
-async function restoreBrowserTab(appName, targetUrl) {
-  if (process.platform !== "darwin" || !appName || !targetUrl) return false;
-  const accessor = BROWSER_TAB_ACCESSORS[appName];
-  if (!accessor) return false;
-  const safeApp = appName.replace(/"/g, '\\"');
-  const safeUrl = targetUrl.replace(/"/g, '\\"');
-  const r = await runOsascript(
-    `tell application "${safeApp}" to set URL of ${accessor} to "${safeUrl}"`,
-  );
-  if (!r.ok) console.error("[focus] tab restore error:", r.error?.message);
-  return r.ok;
+async function restoreBrowserTab(appName, targetUrl, windowId = null) {
+  if (!targetUrl) return false;
+  if (process.platform === "darwin") {
+    if (!appName) return false;
+    const accessor = BROWSER_TAB_ACCESSORS[appName];
+    if (!accessor) return false;
+    const safeApp = appName.replace(/"/g, '\\"');
+    const safeUrl = targetUrl.replace(/"/g, '\\"');
+    const r = await runOsascript(
+      `tell application "${safeApp}" to set URL of ${accessor} to "${safeUrl}"`,
+    );
+    if (!r.ok) console.error("[focus] tab restore error:", r.error?.message);
+    return r.ok;
+  }
+  if (process.platform === "win32") {
+    if (!windowId) return false;
+    try {
+      return await navigateActiveTab(windowId, targetUrl);
+    } catch (e) {
+      console.error("[focus] win32 tab nav error:", e?.message ?? e);
+      return false;
+    }
+  }
+  return false;
 }
 
 /** List the URLs of every tab in the browser's front window. */
@@ -192,7 +207,7 @@ async function switchToBrowserTab(appName, tabIndex) {
   return r.ok;
 }
 
-const { focusWindowById } = createFocusWindow();
+const { focusWindowById, navigateActiveTab } = createFocusWindow();
 
 function snapshotFromInfo(info) {
   return {
@@ -266,8 +281,9 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
     // to a clean slate so they can start working without it counting as a
     // breach. Fire-and-forget — graceKey prevents breach if the nav lags.
     if (lastSnapshot) {
-      const isBrowser =
-        !!lastSnapshot.url && BROWSER_TAB_ACCESSORS[lastSnapshot.app];
+      // get-windows only fills `url` for browsers, so its presence is a
+      // cross-platform "is browser?" check.
+      const isBrowser = !!lastSnapshot.url;
       const allowedNow = isAllowedFocusApp(
         lastSnapshot,
         focusSession.allowedApps,
@@ -277,6 +293,7 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
         restoreBrowserTab(
           lastSnapshot.app,
           blockedPageUrlFor(focusSession.allowedSites),
+          lastSnapshot.windowId,
         ).catch((e) =>
           console.error("[focus] start-clean nav failed:", e?.message),
         );
@@ -287,6 +304,7 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
     lastAllowedWindowId = null;
     lastAllowedAppName = null;
     lastAllowedUrl = null;
+    lastAllowedTitle = null;
     sessionStartGraceKey = null;
   }
 });
@@ -335,32 +353,70 @@ function startActiveAppPolling(win) {
           Date.now() - lastRestoreAt > RESTORE_COOLDOWN_MS
         ) {
           lastRestoreAt = Date.now();
-          // If we're in a known browser, try to switch to an already-open
-          // allowed tab. Falls back to URL navigation if no allowed tab exists.
-          const inBrowser =
-            !!snapshot.url && BROWSER_TAB_ACCESSORS[snapshot.app] !== undefined;
+          // get-windows only fills `url` for browsers — cross-platform test.
+          const inBrowser = !!snapshot.url;
           let restored = null;
           if (inBrowser) {
-            // Only switch tabs if we find the EXACT URL the user was last on.
-            // Don't hunt for "any allowed tab" — that can pop open a stale
-            // background tab the user forgot existed.
-            if (lastAllowedUrl) {
-              const urls = await getBrowserTabUrls(snapshot.app);
-              if (urls && urls.length) {
-                const currentIndex = urls.findIndex((u) => u === snapshot.url);
-                const targetIndex = urls.findIndex(
-                  (u, i) => i !== currentIndex && u === lastAllowedUrl,
-                );
-                if (targetIndex >= 0) {
-                  if (await switchToBrowserTab(snapshot.app, targetIndex + 1)) {
-                    restored = { windowId: null, refocused: urls[targetIndex] };
+            if (lastAllowedUrl || lastAllowedTitle) {
+              if (process.platform === "darwin") {
+                const urls = await getBrowserTabUrls(snapshot.app);
+                if (urls && urls.length) {
+                  const currentIndex = urls.findIndex((u) => u === snapshot.url);
+                  const targetIndex = urls.findIndex(
+                    (u, i) => i !== currentIndex && u === lastAllowedUrl,
+                  );
+                  if (targetIndex >= 0) {
+                    if (await switchToBrowserTab(snapshot.app, targetIndex + 1)) {
+                      restored = { windowId: null, refocused: urls[targetIndex] };
+                    }
+                  }
+                }
+              } else if (
+                process.platform === "win32" &&
+                lastAllowedTitle &&
+                snapshot.windowId
+              ) {
+                // UIA exposes tab page titles via TabItem.Name — match on title.
+                const tabs = await winTabs.listTabs(snapshot.windowId);
+                if (tabs && tabs.length) {
+                  const wantTitle = String(lastAllowedTitle).toLowerCase();
+                  const currentTitle = String(snapshot.title ?? "").toLowerCase();
+                  // Exact match first, then case-insensitive contains.
+                  let targetIndex = tabs.findIndex(
+                    (t) =>
+                      (t.name ?? "").toLowerCase() === wantTitle &&
+                      (t.name ?? "").toLowerCase() !== currentTitle,
+                  );
+                  if (targetIndex < 0) {
+                    targetIndex = tabs.findIndex((t) => {
+                      const n = String(t.name ?? "").toLowerCase();
+                      return (
+                        n &&
+                        n !== currentTitle &&
+                        (n.includes(wantTitle) || wantTitle.includes(n))
+                      );
+                    });
+                  }
+                  if (targetIndex >= 0) {
+                    if (await winTabs.selectTab(snapshot.windowId, targetIndex)) {
+                      restored = {
+                        windowId: null,
+                        refocused: tabs[targetIndex].name ?? null,
+                      };
+                    }
                   }
                 }
               }
-              // That tab is gone — rewrite the offending tab back to the URL
-              // they had been on (the page they came from).
-              if (!restored) {
-                if (await restoreBrowserTab(snapshot.app, lastAllowedUrl)) {
+              // Tab match failed — rewrite the offending tab's URL back to
+              // wherever the user came from.
+              if (!restored && lastAllowedUrl) {
+                if (
+                  await restoreBrowserTab(
+                    snapshot.app,
+                    lastAllowedUrl,
+                    snapshot.windowId,
+                  )
+                ) {
                   restored = { windowId: null, refocused: lastAllowedUrl };
                 }
               }
@@ -381,6 +437,7 @@ function startActiveAppPolling(win) {
             if (typeof info.id === "number") lastAllowedWindowId = info.id;
             lastAllowedAppName = snapshot.app;
             if (snapshot.url) lastAllowedUrl = snapshot.url;
+            if (snapshot.title) lastAllowedTitle = snapshot.title;
           }
 
           lastSnapshot = snapshot;
