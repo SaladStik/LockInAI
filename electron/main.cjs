@@ -26,6 +26,11 @@ async function getActiveWindowFn() {
   return activeWindowFn;
 }
 
+let lastSnapshot = null;
+let lastError = null;
+
+ipcMain.handle("active-app:get", () => ({ snapshot: lastSnapshot, error: lastError }));
+
 function startActiveAppPolling(win) {
   let lastKey = null;
   let lastErrorSent = null;
@@ -49,6 +54,7 @@ function startActiveAppPolling(win) {
           };
           // Include title in the dedupe key so tab/window switches inside
           // the same app still fire updates (e.g. switching VSCode files).
+          lastSnapshot = snapshot;
           const key = `${snapshot.app}|${snapshot.url ?? ""}|${snapshot.title}`;
           if (key !== lastKey) {
             lastKey = key;
@@ -56,6 +62,7 @@ function startActiveAppPolling(win) {
           }
           if (lastErrorSent) {
             lastErrorSent = null;
+            lastError = null;
             if (!win.isDestroyed()) win.webContents.send("active-app:error", null);
           }
         }
@@ -72,6 +79,7 @@ function startActiveAppPolling(win) {
               : "unknown";
       if (lastErrorSent !== kind) {
         lastErrorSent = kind;
+        lastError = { kind, message: msg };
         if (!win.isDestroyed()) {
           win.webContents.send("active-app:error", { kind, message: msg });
         }
@@ -105,6 +113,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
 
@@ -114,7 +123,7 @@ function createWindow() {
     console.error(`[did-fail-load] ${code} ${desc} ${url}`);
   });
   win.webContents.on("console-message", (e) => {
-    if (e.message && e.message.startsWith("[voice]") || e.message.startsWith("[preview]")) {
+    if (e.message && (e.message.startsWith("[voice]") || e.message.startsWith("[preview]") || e.message.startsWith("[useActiveApp]"))) {
       console.log(`[renderer] ${e.message}`);
       return;
     }
