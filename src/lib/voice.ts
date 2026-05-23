@@ -113,7 +113,7 @@ export function previewVoice(text: string, voiceURI: string | null) {
   if (!isBrowser()) return;
   const voices = window.speechSynthesis.getVoices();
   const v = voiceURI ? voices.find((x) => x.voiceURI === voiceURI) ?? null : pickVoice();
-  speakWithVoice(text, v, { force: true });
+  speakWithVoice(text, v);
 }
 
 function speakWithVoice(

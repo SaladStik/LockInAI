@@ -17,15 +17,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   openAccessibilitySettings: () => ipcRenderer.send("open:accessibility-settings"),
   openScreenRecordingSettings: () => ipcRenderer.send("open:screen-recording-settings"),
-  setEnforcement: (payload) => ipcRenderer.send("enforcement:set", payload),
+  syncFocusSession: (active, allowedApps) =>
+    ipcRenderer.send("focus-session:sync", { active, allowedApps }),
+  onFocusRestored: (cb) => {
+    const listener = (_event, payload) => cb(payload);
+    ipcRenderer.on("focus:restored", listener);
+    return () => ipcRenderer.removeListener("focus:restored", listener);
+  },
   customApps: {
     list: () => ipcRenderer.invoke("custom-apps:list"),
     add: (name) => ipcRenderer.invoke("custom-apps:add", name),
     remove: (id) => ipcRenderer.invoke("custom-apps:remove", id),
-  },
-  onEnforcementBreach: (cb) => {
-    const listener = (_event, info) => cb(info);
-    ipcRenderer.on("enforcement:breach", listener);
-    return () => ipcRenderer.removeListener("enforcement:breach", listener);
   },
 });

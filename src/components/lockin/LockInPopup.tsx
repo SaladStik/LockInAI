@@ -93,17 +93,22 @@ export function LockInPopup() {
   const { snapshot: activeApp, error: activeAppError } = useActiveApp();
   const { apps: customApps, addApp: addCustomApp, removeApp: removeCustomApp } = useCustomApps();
 
-  // Sync focus-session enforcement with the main process. When we enter the
-  // "focus" screen, lock the allowed-apps list; on any exit, disable it.
+  // Tell the main process which apps are allowed so it can snap back during focus.
   useEffect(() => {
-    const api = typeof window !== "undefined" ? window.electronAPI : undefined;
-    if (!api) return;
-    if (screen === "focus") {
-      api.setEnforcement({ enforced: true, allowedApps: apps });
-    } else {
-      api.setEnforcement({ enforced: false, allowedApps: [] });
-    }
-  }, [screen, apps]);
+    if (!hasNativeAppDetection) return;
+    window.electronAPI?.syncFocusSession(screen === "focus", apps);
+    if (screen !== "focus") focusAllowedRef.current = true;
+  }, [screen, apps, hasNativeAppDetection]);
+
+  useEffect(() => {
+    if (!hasNativeAppDetection) return;
+    const off = window.electronAPI?.onFocusRestored(() => {
+      focusAllowedRef.current = true;
+      setBreach(false);
+    });
+    return () => off?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasNativeAppDetection]);
 
   // Tick the focus timer
   useEffect(() => {

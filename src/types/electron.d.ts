@@ -7,22 +7,14 @@ export type ActiveAppSnapshot = {
   bundleId: string | null;
   /** Windows/Linux: path to the owning process executable */
   path: string | null;
+  /** Windows: HWND used to restore focus to this window */
+  windowId: number | null;
 };
 
 export type ActiveAppError = {
   kind: "needs-accessibility" | "needs-screen-recording" | "unknown";
   message: string;
 } | null;
-
-export type EnforcementPayload = {
-  enforced: boolean;
-  allowedApps: string[];
-};
-
-export type EnforcementBreach = {
-  detected: string;
-  refocused: string;
-};
 
 export type CustomApp = {
   id: number;
@@ -38,11 +30,20 @@ declare global {
       windowMaximize: () => void;
       onActiveAppChange: (cb: (snapshot: ActiveAppSnapshot) => void) => () => void;
       onActiveAppError: (cb: (error: ActiveAppError) => void) => () => void;
-      getCurrentActiveApp: () => Promise<{ snapshot: ActiveAppSnapshot | null; error: ActiveAppError }>;
+      getCurrentActiveApp: () => Promise<{
+        snapshot: ActiveAppSnapshot | null;
+        error: ActiveAppError;
+      }>;
       openAccessibilitySettings: () => void;
       openScreenRecordingSettings: () => void;
-      setEnforcement: (payload: EnforcementPayload) => void;
-      onEnforcementBreach: (cb: (info: EnforcementBreach) => void) => () => void;
+      syncFocusSession: (active: boolean, allowedApps: string[]) => void;
+      onFocusRestored: (
+        cb: (payload: {
+          windowId: number | null;
+          blocked: string;
+          refocused?: string;
+        }) => void,
+      ) => () => void;
       customApps: {
         list: () => Promise<CustomApp[]>;
         add: (name: string) => Promise<CustomApp | null>;

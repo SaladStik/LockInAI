@@ -1,7 +1,9 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
-const { exec } = require("node:child_process");
+const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const db = require("./db.cjs");
+const { isAllowedFocusApp } = require("./app-match.cjs");
+const { createFocusWindow } = require("./focus-window.cjs");
 
 const isDev = process.env.NODE_ENV === "development";
 const devUrl = process.env.NEXT_DEV_SERVER_URL;
@@ -20,48 +22,98 @@ function isOurApp(info) {
 }
 
 let activeWindowFn = null;
-async function getActiveWindowFn() {
+let openWindowsFn = null;
+async function getWindowsModule() {
   if (!activeWindowFn) {
     const mod = await import("get-windows");
     activeWindowFn = mod.activeWindow;
+    openWindowsFn = mod.openWindows;
   }
-  return activeWindowFn;
+  return { activeWindow: activeWindowFn, openWindows: openWindowsFn };
 }
 
 let lastSnapshot = null;
 let lastError = null;
+let focusSession = { active: false, allowedApps: [] };
+let lastAllowedWindowId = null; // Windows HWND
+let lastAllowedAppName = null; // macOS app name (for osascript fallback)
+let lastRestoreAt = 0;
+const RESTORE_COOLDOWN_MS = 1200;
 
-// Focus-session enforcement: when enabled, the main process auto-refocuses the
-// previous allowed app whenever the user lands on something off the list.
-let enforcement = { enforced: false, allowedApps: [] };
-let lastAllowedAppName = null; // the macOS-reported app name (e.g. "Google Chrome")
-let lastActivationAt = 0;
+const { focusWindowById } = createFocusWindow();
 
-function isAllowedApp(appName) {
-  if (!enforcement.allowedApps.length) return false;
-  const lower = appName.toLowerCase();
-  return enforcement.allowedApps.some((label) => {
-    const l = String(label).toLowerCase();
-    if (!l) return false;
-    return lower.includes(l) || l.includes(lower);
-  });
+function snapshotFromInfo(info) {
+  return {
+    app: info.owner.name,
+    title: info.title ?? "",
+    url: info.url ?? null,
+    bundleId: info.owner?.bundleId ?? null,
+    path: info.owner?.path ?? null,
+    windowId: typeof info.id === "number" ? info.id : null,
+  };
 }
 
-function activateApp(appName) {
-  if (process.platform !== "darwin") return;
+function activateMacApp(appName) {
+  if (process.platform !== "darwin" || !appName) return false;
   const safe = appName.replace(/"/g, '\\"');
-  exec(`osascript -e 'tell application "${safe}" to activate'`, (err) => {
-    if (err) console.error("[enforcement] activate error:", err.message);
-  });
+  try {
+    execFileSync(
+      "/usr/bin/osascript",
+      ["-e", `tell application "${safe}" to activate`],
+      { stdio: "pipe" },
+    );
+    return true;
+  } catch (e) {
+    console.error("[focus] activate error:", e?.message);
+    return false;
+  }
+}
+
+async function refocusLastAllowed() {
+  // Windows: bring the specific HWND back to the foreground.
+  if (lastAllowedWindowId && focusWindowById(lastAllowedWindowId)) {
+    return { windowId: lastAllowedWindowId, refocused: null };
+  }
+  // macOS: activate the app by name via osascript.
+  if (process.platform === "darwin" && lastAllowedAppName) {
+    if (activateMacApp(lastAllowedAppName)) {
+      return { windowId: null, refocused: lastAllowedAppName };
+    }
+  }
+  // Fallback: enumerate open windows and pick any allowed one.
+  try {
+    const { openWindows } = await getWindowsModule();
+    const windows = await openWindows();
+    for (const w of windows) {
+      if (!w?.owner?.name || isOurApp(w)) continue;
+      const snap = snapshotFromInfo(w);
+      if (!isAllowedFocusApp(snap, focusSession.allowedApps)) continue;
+      if (typeof w.id === "number" && focusWindowById(w.id)) {
+        lastAllowedWindowId = w.id;
+        return { windowId: w.id, refocused: null };
+      }
+      if (process.platform === "darwin" && activateMacApp(snap.app)) {
+        lastAllowedAppName = snap.app;
+        return { windowId: null, refocused: snap.app };
+      }
+    }
+  } catch (e) {
+    console.error("[focus] enumerate error:", e?.message);
+  }
+  return null;
 }
 
 ipcMain.handle("active-app:get", () => ({ snapshot: lastSnapshot, error: lastError }));
 
-ipcMain.on("enforcement:set", (_e, payload) => {
-  const enabled = !!payload?.enforced;
-  const apps = Array.isArray(payload?.allowedApps) ? payload.allowedApps : [];
-  enforcement = { enforced: enabled, allowedApps: apps };
-  if (!enabled) lastAllowedAppName = null;
+ipcMain.on("focus-session:sync", (_e, payload) => {
+  focusSession = {
+    active: Boolean(payload?.active),
+    allowedApps: Array.isArray(payload?.allowedApps) ? payload.allowedApps : [],
+  };
+  if (!focusSession.active) {
+    lastAllowedWindowId = null;
+    lastAllowedAppName = null;
+  }
 });
 
 function startActiveAppPolling(win) {
@@ -72,21 +124,41 @@ function startActiveAppPolling(win) {
   async function poll() {
     if (stopped || win.isDestroyed()) return;
     try {
-      const activeWindow = await getActiveWindowFn();
+      const { activeWindow } = await getWindowsModule();
       const info = await activeWindow();
       if (info?.owner?.name) {
-        const appName = info.owner.name;
-        // Ignore our own window — keep showing the last external app in the UI.
-        if (!isOurApp(info)) {
-          const snapshot = {
-            app: appName,
-            title: info.title ?? "",
-            url: info.url ?? null,
-            bundleId: info.owner?.bundleId ?? null,
-            path: info.owner?.path ?? null,
-          };
-          // Include title in the dedupe key so tab/window switches inside
-          // the same app still fire updates (e.g. switching VSCode files).
+        const snapshot = snapshotFromInfo(info);
+
+        const ownApp = isOurApp(info);
+        const allowed =
+          !ownApp && isAllowedFocusApp(snapshot, focusSession.allowedApps);
+
+        // During a focus session, snap back to the last allowed window whenever
+        // the user lands on something off the list.
+        if (
+          focusSession.active &&
+          !ownApp &&
+          !allowed &&
+          Date.now() - lastRestoreAt > RESTORE_COOLDOWN_MS
+        ) {
+          lastRestoreAt = Date.now();
+          const result = await refocusLastAllowed();
+          if (result && !win.isDestroyed()) {
+            win.webContents.send("focus:restored", {
+              windowId: result.windowId,
+              blocked: snapshot.app,
+              refocused: result.refocused ?? undefined,
+            });
+            return;
+          }
+        }
+
+        if (!ownApp) {
+          if (allowed) {
+            if (typeof info.id === "number") lastAllowedWindowId = info.id;
+            lastAllowedAppName = snapshot.app;
+          }
+
           lastSnapshot = snapshot;
           const key = `${snapshot.app}|${snapshot.url ?? ""}|${snapshot.title}`;
           if (key !== lastKey) {
@@ -97,26 +169,6 @@ function startActiveAppPolling(win) {
             lastErrorSent = null;
             lastError = null;
             if (!win.isDestroyed()) win.webContents.send("active-app:error", null);
-          }
-
-          // Enforcement: track the last allowed app the user was actually in,
-          // and snap focus back to it whenever they land on a disallowed one.
-          if (enforcement.enforced) {
-            if (isAllowedApp(appName)) {
-              lastAllowedAppName = appName;
-            } else if (lastAllowedAppName && lastAllowedAppName !== appName) {
-              const now = Date.now();
-              if (now - lastActivationAt > 1200) {
-                lastActivationAt = now;
-                activateApp(lastAllowedAppName);
-                if (!win.isDestroyed()) {
-                  win.webContents.send("enforcement:breach", {
-                    detected: appName,
-                    refocused: lastAllowedAppName,
-                  });
-                }
-              }
-            }
           }
         }
       }
@@ -134,7 +186,7 @@ function startActiveAppPolling(win) {
         /Command failed/.test(e?.message ?? "")
       ) {
         try {
-          require("node:child_process").execFileSync(
+          execFileSync(
             path.join(__dirname, "..", "node_modules", "get-windows", "main"),
             [],
             { stdio: "pipe" },
@@ -198,7 +250,12 @@ function createWindow() {
     console.error(`[did-fail-load] ${code} ${desc} ${url}`);
   });
   win.webContents.on("console-message", (e) => {
-    if (e.message && (e.message.startsWith("[voice]") || e.message.startsWith("[preview]") || e.message.startsWith("[useActiveApp]"))) {
+    if (
+      e.message &&
+      (e.message.startsWith("[voice]") ||
+        e.message.startsWith("[preview]") ||
+        e.message.startsWith("[useActiveApp]"))
+    ) {
       console.log(`[renderer] ${e.message}`);
       return;
     }
