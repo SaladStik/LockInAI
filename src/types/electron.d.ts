@@ -12,6 +12,16 @@ export type ActiveAppError = {
   message: string;
 } | null;
 
+export type EnforcementPayload = {
+  enforced: boolean;
+  allowedApps: string[];
+};
+
+export type EnforcementBreach = {
+  detected: string;
+  refocused: string;
+};
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -22,6 +32,8 @@ declare global {
       onActiveAppError: (cb: (error: ActiveAppError) => void) => () => void;
       getCurrentActiveApp: () => Promise<{ snapshot: ActiveAppSnapshot | null; error: ActiveAppError }>;
       openAccessibilitySettings: () => void;
+      setEnforcement: (payload: EnforcementPayload) => void;
+      onEnforcementBreach: (cb: (info: EnforcementBreach) => void) => () => void;
     };
   }
 }

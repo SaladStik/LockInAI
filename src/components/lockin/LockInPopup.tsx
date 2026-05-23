@@ -87,6 +87,18 @@ export function LockInPopup() {
   const skinLabel = streakSkinLabel(skin);
   const { snapshot: activeApp, error: activeAppError } = useActiveApp();
 
+  // Sync focus-session enforcement with the main process. When we enter the
+  // "focus" screen, lock the allowed-apps list; on any exit, disable it.
+  useEffect(() => {
+    const api = typeof window !== "undefined" ? window.electronAPI : undefined;
+    if (!api) return;
+    if (screen === "focus") {
+      api.setEnforcement({ enforced: true, allowedApps: apps });
+    } else {
+      api.setEnforcement({ enforced: false, allowedApps: [] });
+    }
+  }, [screen, apps]);
+
   // Tick the focus timer
   useEffect(() => {
     if (screen !== "focus") return;
