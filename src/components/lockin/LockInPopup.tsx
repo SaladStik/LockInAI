@@ -102,9 +102,20 @@ export function LockInPopup() {
 
   useEffect(() => {
     if (!hasNativeAppDetection) return;
-    const off = window.electronAPI?.onFocusRestored(() => {
-      focusAllowedRef.current = true;
-      setBreach(false);
+    const off = window.electronAPI?.onFocusRestored((info) => {
+      // Main snapped focus back to an allowed window — fire breach feedback
+      // here too as a safety net in case the disallowed snapshot was deduped.
+      if (focusAllowedRef.current) {
+        focusAllowedRef.current = false;
+        triggerBreach(info?.blocked ?? "blocked app");
+        setBreachCount((c) => {
+          const next = c + 1;
+          if (next >= MAX_BREACHES) {
+            window.setTimeout(() => emergencyExitNow(), 300);
+          }
+          return next;
+        });
+      }
     });
     return () => off?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps

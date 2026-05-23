@@ -134,7 +134,9 @@ function startActiveAppPolling(win) {
           !ownApp && isAllowedFocusApp(snapshot, focusSession.allowedApps);
 
         // During a focus session, snap back to the last allowed window whenever
-        // the user lands on something off the list.
+        // the user lands on something off the list. Don't `return` after — the
+        // renderer's breach UI relies on still receiving the disallowed
+        // snapshot so its breach effect can fire reliably.
         if (
           focusSession.active &&
           !ownApp &&
@@ -149,7 +151,6 @@ function startActiveAppPolling(win) {
               blocked: snapshot.app,
               refocused: result.refocused ?? undefined,
             });
-            return;
           }
         }
 
