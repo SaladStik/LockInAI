@@ -13,11 +13,13 @@ import {
   Trophy,
   Volume2,
   VolumeX,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import { Plant } from "./Plant";
 import { Particles } from "./Particles";
 import { CircularTimer } from "./CircularTimer";
 import { Lockie, type LockieMood } from "./Lockie";
+import { SettingsScreen } from "./SettingsScreen";
 import {
   buildAchievements,
   streakSkin,
@@ -35,7 +37,8 @@ type Screen =
   | "focus"
   | "complete"
   | "garden"
-  | "achievements";
+  | "achievements"
+  | "settings";
 
 const SUBJECTS = ["Math", "Coding", "Reading", "Writing", "Exam Prep"];
 const ALL_APPS = ["Chrome", "VSCode", "Notion", "YouTube", "PDF Viewer", "Figma", "Spotify"];
@@ -250,6 +253,18 @@ export function LockInPopup() {
           <button
             onClick={() =>
               setScreen((s) =>
+                screen === "focus" ? s : s === "settings" ? "welcome" : "settings",
+              )
+            }
+            disabled={screen === "focus"}
+            aria-label="Settings"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-secondary/40 text-foreground transition hover:bg-secondary/70 disabled:opacity-30"
+          >
+            <SettingsIcon size={11} />
+          </button>
+          <button
+            onClick={() =>
+              setScreen((s) =>
                 screen === "focus" ? s : s === "achievements" ? "welcome" : "achievements",
               )
             }
@@ -371,6 +386,9 @@ export function LockInPopup() {
                 skinLabel={skinLabel}
                 onBack={() => setScreen("welcome")}
               />
+            )}
+            {screen === "settings" && (
+              <SettingsScreen onBack={() => setScreen("welcome")} />
             )}
           </motion.div>
         </AnimatePresence>

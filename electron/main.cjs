@@ -30,6 +30,10 @@ function createWindow() {
     console.error(`[did-fail-load] ${code} ${desc} ${url}`);
   });
   win.webContents.on("console-message", (e) => {
+    if (e.message && e.message.startsWith("[voice]") || e.message.startsWith("[preview]")) {
+      console.log(`[renderer] ${e.message}`);
+      return;
+    }
     if (e.level === "error" || e.level === "warning") {
       console.log(`[renderer ${e.level}] ${e.message}  (${e.sourceId}:${e.lineNumber})`);
     }
