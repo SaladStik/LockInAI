@@ -3,6 +3,75 @@ const path = require("node:path");
 
 const isDev = process.env.NODE_ENV === "development";
 const devUrl = process.env.NEXT_DEV_SERVER_URL;
+const OUR_APP_NAMES = new Set(["Electron", "LOCK//IN AI", "lockin-ai"]);
+
+let activeWindowFn = null;
+async function getActiveWindowFn() {
+  if (!activeWindowFn) {
+    const mod = await import("get-windows");
+    activeWindowFn = mod.activeWindow;
+  }
+  return activeWindowFn;
+}
+
+function startActiveAppPolling(win) {
+  let lastKey = null;
+  let lastErrorSent = null;
+  let stopped = false;
+
+  async function poll() {
+    if (stopped || win.isDestroyed()) return;
+    try {
+      const activeWindow = await getActiveWindowFn();
+      const info = await activeWindow();
+      if (info) {
+        const appName = info.owner?.name ?? "Unknown";
+        // Ignore our own focus events — the user wants to see what they were
+        // in BEFORE switching back to the popup.
+        if (!OUR_APP_NAMES.has(appName)) {
+          const snapshot = {
+            app: appName,
+            title: info.title ?? "",
+            url: info.url ?? null,
+            bundleId: info.owner?.bundleId ?? null,
+          };
+          // Include title in the dedupe key so tab/window switches inside
+          // the same app still fire updates (e.g. switching VSCode files).
+          const key = `${snapshot.app}|${snapshot.url ?? ""}|${snapshot.title}`;
+          if (key !== lastKey) {
+            lastKey = key;
+            if (!win.isDestroyed()) win.webContents.send("active-app:change", snapshot);
+          }
+          if (lastErrorSent) {
+            lastErrorSent = null;
+            if (!win.isDestroyed()) win.webContents.send("active-app:error", null);
+          }
+        }
+      }
+    } catch (e) {
+      const msg = e?.message ?? String(e);
+      const kind = /accessibility/i.test(msg)
+        ? "needs-accessibility"
+        : /screen recording/i.test(msg)
+          ? "needs-screen-recording"
+          : "unknown";
+      if (lastErrorSent !== kind) {
+        lastErrorSent = kind;
+        if (!win.isDestroyed()) {
+          win.webContents.send("active-app:error", { kind, message: msg });
+        }
+        console.error("[active-app] poll error:", msg);
+      }
+    }
+  }
+
+  poll();
+  const timer = setInterval(poll, 800);
+  win.on("closed", () => {
+    stopped = true;
+    clearInterval(timer);
+  });
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -54,6 +123,8 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, "..", "out", "index.html"));
   }
+
+  startActiveAppPolling(win);
 }
 
 ipcMain.on("window:close", (e) => BrowserWindow.fromWebContents(e.sender)?.close());
@@ -63,6 +134,14 @@ ipcMain.on("window:maximize", (e) => {
   if (!win) return;
   if (win.isMaximized()) win.unmaximize();
   else win.maximize();
+});
+
+ipcMain.on("open:accessibility-settings", () => {
+  if (process.platform === "darwin") {
+    shell.openExternal(
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+    );
+  }
 });
 
 app.whenReady().then(() => {

@@ -20,6 +20,7 @@ import { Particles } from "./Particles";
 import { CircularTimer } from "./CircularTimer";
 import { Lockie, type LockieMood } from "./Lockie";
 import { SettingsScreen } from "./SettingsScreen";
+import { useActiveApp } from "@/hooks/useActiveApp";
 import {
   buildAchievements,
   streakSkin,
@@ -84,6 +85,7 @@ export function LockInPopup() {
 
   const skin = streakSkin(streak);
   const skinLabel = streakSkinLabel(skin);
+  const { snapshot: activeApp, error: activeAppError } = useActiveApp();
 
   // Tick the focus timer
   useEffect(() => {
@@ -97,7 +99,7 @@ export function LockInPopup() {
         const next = Math.min(4, s + 1);
         setGarden((g) => [
           {
-            id: `p-${Date.now()}`,
+            id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             name: randomPlantName(),
             stage: next,
             status: "alive",
@@ -165,7 +167,7 @@ export function LockInPopup() {
     setTotalSessions((n) => n + 1);
     setGarden((g) => [
       {
-        id: `p-${Date.now()}`,
+        id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name: randomPlantName(),
         stage: Math.max(0, stage - 1),
         status: "dead",
@@ -290,7 +292,7 @@ export function LockInPopup() {
       </div>
 
       {/* screen body */}
-      <div className={`relative z-10 h-[calc(100%-48px)] ${breach ? "animate-shake-soft" : ""}`}>
+      <div className={`relative z-10 h-[calc(100%-72px)] ${breach ? "animate-shake-soft" : ""}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={screen}
@@ -413,6 +415,8 @@ export function LockInPopup() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ActiveAppFooter snapshot={activeApp} error={activeAppError} />
     </div>
   );
 }
@@ -1362,4 +1366,63 @@ function AchievementCard({ a }: { a: Achievement }) {
       )}
     </div>
   );
+}
+
+function ActiveAppFooter({
+  snapshot,
+  error,
+}: {
+  snapshot: ReturnType<typeof useActiveApp>["snapshot"];
+  error: ReturnType<typeof useActiveApp>["error"];
+}) {
+  if (error?.kind === "needs-accessibility") {
+    return (
+      <button
+        type="button"
+        onClick={() => window.electronAPI?.openAccessibilitySettings()}
+        className="absolute bottom-0 left-0 right-0 z-30 flex h-6 items-center justify-center gap-1.5 border-t border-warning/40 bg-warning/10 px-4 text-warning backdrop-blur-md transition hover:bg-warning/20"
+      >
+        <span className="h-1 w-1 rounded-full bg-warning" />
+        <span className="font-mono text-[9px] uppercase tracking-[0.25em]">
+          grant accessibility →
+        </span>
+      </button>
+    );
+  }
+
+  const label = snapshot?.app ?? "listening…";
+  const subtitle = snapshot?.url
+    ? formatHost(snapshot.url)
+    : snapshot?.title
+      ? truncate(snapshot.title, 32)
+      : null;
+
+  return (
+    <div className="absolute bottom-0 left-0 right-0 z-30 flex h-6 items-center justify-center gap-1.5 border-t border-border/30 bg-background/40 px-4 backdrop-blur-md">
+      <span
+        className="h-1 w-1 rounded-full bg-primary-glow"
+        style={{ boxShadow: "0 0 6px var(--primary-glow)" }}
+      />
+      <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
+        now in:
+      </span>
+      <span className="truncate text-[10px] font-medium text-foreground">{label}</span>
+      {subtitle && (
+        <span className="truncate text-[10px] text-muted-foreground">— {subtitle}</span>
+      )}
+    </div>
+  );
+}
+
+function formatHost(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "") + (u.pathname !== "/" ? truncate(u.pathname, 18) : "");
+  } catch {
+    return truncate(url, 24);
+  }
+}
+
+function truncate(s: string, max: number) {
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }
