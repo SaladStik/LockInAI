@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("active-app:change", listener);
     return () => ipcRenderer.removeListener("active-app:change", listener);
   },
+  getCurrentActiveApp: () => ipcRenderer.invoke("active-app:get"),
   onActiveAppError: (cb) => {
     const listener = (_event, error) => cb(error);
     ipcRenderer.on("active-app:error", listener);

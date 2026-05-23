@@ -20,6 +20,7 @@ declare global {
       windowMaximize: () => void;
       onActiveAppChange: (cb: (snapshot: ActiveAppSnapshot) => void) => () => void;
       onActiveAppError: (cb: (error: ActiveAppError) => void) => () => void;
+      getCurrentActiveApp: () => Promise<{ snapshot: ActiveAppSnapshot | null; error: ActiveAppError }>;
       openAccessibilitySettings: () => void;
     };
   }

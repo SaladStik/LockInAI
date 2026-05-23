@@ -11,8 +11,15 @@ export function useActiveApp(): {
   useEffect(() => {
     const api = typeof window !== "undefined" ? window.electronAPI : undefined;
     if (!api) return;
-    const offChange = api.onActiveAppChange((s) => setSnapshot(s));
-    const offError = api.onActiveAppError((e) => setError(e));
+
+    // Pull the current state in case main already polled before this hook mounted.
+    api.getCurrentActiveApp().then((state) => {
+      if (state.snapshot) setSnapshot(state.snapshot);
+      if (state.error) setError(state.error);
+    });
+
+    const offChange = api.onActiveAppChange(setSnapshot);
+    const offError = api.onActiveAppError(setError);
     return () => {
       offChange();
       offError();
