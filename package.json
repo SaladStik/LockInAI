@@ -45,7 +45,11 @@
     },
     "files": [
       "out/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "node_modules/get-windows/**/*"
+    ],
+    "asarUnpack": [
+      "**/node_modules/get-windows/**/*.node"
     ],
     "mac": {
       "target": "dmg",

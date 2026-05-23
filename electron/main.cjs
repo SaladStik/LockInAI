@@ -4,7 +4,19 @@ const path = require("node:path");
 
 const isDev = process.env.NODE_ENV === "development";
 const devUrl = process.env.NEXT_DEV_SERVER_URL;
-const OUR_APP_NAMES = new Set(["Electron", "LOCK//IN AI", "lockin-ai"]);
+const OUR_APP_NAMES = new Set([
+  "Electron",
+  "LOCK//IN AI",
+  "lockin-ai",
+  "LOCKIN AI",
+]);
+
+function isOurApp(info) {
+  const name = info.owner?.name ?? "";
+  if (OUR_APP_NAMES.has(name)) return true;
+  const exe = (info.owner?.path ?? "").toLowerCase();
+  return exe.includes("lockin") || (isDev && exe.includes("electron.exe"));
+}
 
 let activeWindowFn = null;
 async function getActiveWindowFn() {
@@ -61,16 +73,16 @@ function startActiveAppPolling(win) {
     try {
       const activeWindow = await getActiveWindowFn();
       const info = await activeWindow();
-      if (info) {
-        const appName = info.owner?.name ?? "Unknown";
-        // Ignore our own focus events — the user wants to see what they were
-        // in BEFORE switching back to the popup.
-        if (!OUR_APP_NAMES.has(appName)) {
+      if (info?.owner?.name) {
+        const appName = info.owner.name;
+        // Ignore our own window — keep showing the last external app in the UI.
+        if (!isOurApp(info)) {
           const snapshot = {
             app: appName,
             title: info.title ?? "",
             url: info.url ?? null,
             bundleId: info.owner?.bundleId ?? null,
+            path: info.owner?.path ?? null,
           };
           // Include title in the dedupe key so tab/window switches inside
           // the same app still fire updates (e.g. switching VSCode files).
@@ -109,11 +121,14 @@ function startActiveAppPolling(win) {
       }
     } catch (e) {
       const msg = e?.message ?? String(e);
-      const kind = /accessibility/i.test(msg)
-        ? "needs-accessibility"
-        : /screen recording/i.test(msg)
-          ? "needs-screen-recording"
-          : "unknown";
+      const kind =
+        process.platform === "win32"
+          ? "unknown"
+          : /accessibility/i.test(msg)
+            ? "needs-accessibility"
+            : /screen recording/i.test(msg)
+              ? "needs-screen-recording"
+              : "unknown";
       if (lastErrorSent !== kind) {
         lastErrorSent = kind;
         lastError = { kind, message: msg };
@@ -202,6 +217,10 @@ ipcMain.on("open:accessibility-settings", () => {
     shell.openExternal(
       "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
     );
+    return;
+  }
+  if (process.platform === "win32") {
+    shell.openExternal("ms-settings:privacy");
   }
 });
 

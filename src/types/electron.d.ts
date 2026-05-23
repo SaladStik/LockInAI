@@ -5,6 +5,8 @@ export type ActiveAppSnapshot = {
   title: string;
   url: string | null;
   bundleId: string | null;
+  /** Windows/Linux: path to the owning process executable */
+  path: string | null;
 };
 
 export type ActiveAppError = {
