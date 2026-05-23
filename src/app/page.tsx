@@ -1,11 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { LockInPopup } from "@/components/lockin/LockInPopup";
+"use client";
 
-export const Route = createFileRoute("/")({
-  component: Index,
-});
+import dynamic from "next/dynamic";
 
-function Index() {
+const LockInPopup = dynamic(
+  () => import("@/components/lockin/LockInPopup").then((m) => m.LockInPopup),
+  { ssr: false },
+);
+
+export default function Page() {
   return (
     <main
       className="flex h-screen w-screen items-center justify-center bg-transparent"

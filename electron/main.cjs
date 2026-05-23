@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("node:path");
 
 const isDev = process.env.NODE_ENV === "development";
-const devUrl = process.env.VITE_DEV_SERVER_URL;
+const devUrl = process.env.NEXT_DEV_SERVER_URL;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -26,6 +26,15 @@ function createWindow() {
 
   win.once("ready-to-show", () => win.show());
 
+  win.webContents.on("did-fail-load", (_e, code, desc, url) => {
+    console.error(`[did-fail-load] ${code} ${desc} ${url}`);
+  });
+  win.webContents.on("console-message", (e) => {
+    if (e.level === "error" || e.level === "warning") {
+      console.log(`[renderer ${e.level}] ${e.message}  (${e.sourceId}:${e.lineNumber})`);
+    }
+  });
+
   // Open external links in the user's default browser instead of a new window.
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -39,7 +48,7 @@ function createWindow() {
     win.loadURL(devUrl);
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+    win.loadFile(path.join(__dirname, "..", "out", "index.html"));
   }
 }
 

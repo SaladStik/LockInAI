@@ -9,6 +9,8 @@ dist-ssr/
 build/
 release/
 out/
+.next/
+next-env.d.ts
 
 # Logs
 *.log
