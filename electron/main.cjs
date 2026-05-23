@@ -207,54 +207,7 @@ async function switchToBrowserTab(appName, tabIndex) {
   return r.ok;
 }
 
-const { focusWindowById, navigateActiveTab, getActiveTabUrl } = createFocusWindow();
-
-/** Windows: get-windows does not expose tab URLs — read from the address bar. */
-const winUrlCache = new Map();
-const winUrlInFlight = new Map();
-const winLastEnrichKey = new Map();
-const WIN_URL_CACHE_MS = 3000;
-const WIN_URL_PASSIVE_MS = 120_000;
-
-async function enrichSnapshot(snapshot, { focusActive = false } = {}) {
-  if (process.platform !== "win32") return snapshot;
-  if (snapshot.url) return snapshot;
-  if (!isBrowserSnapshot(snapshot)) return snapshot;
-  if (typeof snapshot.windowId !== "number") return snapshot;
-
-  const cacheKey = String(snapshot.windowId);
-  const hit = winUrlCache.get(cacheKey);
-  const pageKey = `${snapshot.windowId}|${snapshot.title ?? ""}`;
-  const pageChanged = winLastEnrichKey.get(snapshot.windowId) !== pageKey;
-
-  if (focusActive) {
-    if (hit && Date.now() - hit.at < WIN_URL_CACHE_MS) {
-      return hit.url ? { ...snapshot, url: hit.url } : snapshot;
-    }
-  } else if (hit && !pageChanged && Date.now() - hit.at < WIN_URL_PASSIVE_MS) {
-    return hit.url ? { ...snapshot, url: hit.url } : snapshot;
-  }
-
-  if (winUrlInFlight.has(cacheKey)) {
-    const url = await winUrlInFlight.get(cacheKey);
-    return url ? { ...snapshot, url } : snapshot;
-  }
-
-  winLastEnrichKey.set(snapshot.windowId, pageKey);
-  const task = getActiveTabUrl(snapshot.windowId)
-    .then((url) => {
-      winUrlCache.set(cacheKey, { url, at: Date.now() });
-      return url;
-    })
-    .finally(() => {
-      winUrlInFlight.delete(cacheKey);
-    });
-  winUrlInFlight.set(cacheKey, task);
-
-  const url = await task;
-  if (!url) return snapshot;
-  return { ...snapshot, url };
-}
+const { focusWindowById, navigateActiveTab } = createFocusWindow();
 
 function snapshotFromInfo(info) {
   return {
@@ -327,27 +280,23 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
     // If they already had a browser tab open on a disallowed URL, navigate it
     // to a clean slate so they can start working without it counting as a
     // breach. Fire-and-forget — graceKey prevents breach if the nav lags.
-    const startCleanNav = async (snap) => {
-      if (!snap) return;
-      const enriched =
-        process.platform === "win32" ? await enrichSnapshot(snap, { focusActive: true }) : snap;
-      const isBrowser = isBrowserSnapshot(enriched);
+    if (lastSnapshot) {
+      const isBrowser = isBrowserSnapshot(lastSnapshot);
       const allowedNow = isAllowedFocusApp(
-        enriched,
+        lastSnapshot,
         focusSession.allowedApps,
         focusSession.allowedSites,
       );
       if (isBrowser && !allowedNow) {
         restoreBrowserTab(
-          enriched.app,
+          lastSnapshot.app,
           blockedPageUrlFor(focusSession.allowedSites),
-          enriched.windowId,
+          lastSnapshot.windowId,
         ).catch((e) =>
           console.error("[focus] start-clean nav failed:", e?.message),
         );
       }
-    };
-    startCleanNav(lastSnapshot);
+    }
   }
   if (!focusSession.active) {
     lastAllowedWindowId = null;
@@ -374,8 +323,7 @@ function startActiveAppPolling(win) {
       const { activeWindow } = await getWindowsModule();
       const info = await activeWindow();
       if (info?.owner?.name) {
-        let snapshot = snapshotFromInfo(info);
-        snapshot = await enrichSnapshot(snapshot, { focusActive: focusSession.active });
+        const snapshot = snapshotFromInfo(info);
 
         const ownApp = isOurApp(info);
         const allowed =

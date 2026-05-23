@@ -7,7 +7,6 @@ function createFocusWindow() {
     return {
       focusWindowById: () => false,
       navigateActiveTab: async () => false,
-      getActiveTabUrl: async () => null,
     };
   }
 
@@ -45,19 +44,8 @@ function createFocusWindow() {
     const VK_A = 0x41;
     const VK_V = 0x56;
     const VK_RETURN = 0x0d;
-    const VK_ESCAPE = 0x1b;
-    const VK_C = 0x43;
 
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-    function normalizeUrl(raw) {
-      if (!raw) return null;
-      const val = String(raw).trim();
-      if (!val) return null;
-      if (/^https?:\/\//i.test(val)) return val;
-      if (/^[a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,}/.test(val)) return `https://${val}`;
-      return null;
-    }
 
     function tap(vk) {
       keybd_event(vk, 0, 0, 0);
@@ -126,35 +114,12 @@ function createFocusWindow() {
           }, 700);
         }
       },
-      async getActiveTabUrl(hwndId) {
-        if (!focusWindowByIdImpl(hwndId)) return null;
-        await sleep(80);
-        const { clipboard } = require("electron");
-        const previousClip = clipboard.readText();
-        try {
-          withCtrl(VK_L);
-          await sleep(70);
-          withCtrl(VK_C);
-          await sleep(70);
-          return normalizeUrl(clipboard.readText());
-        } finally {
-          tap(VK_ESCAPE);
-          setTimeout(() => {
-            try {
-              clipboard.writeText(previousClip);
-            } catch {
-              /* clipboard may be unavailable on shutdown */
-            }
-          }, 100);
-        }
-      },
     };
   } catch (e) {
     console.error("[focus-window] Failed to load Win32 APIs:", e?.message ?? e);
     api = {
       focusWindowById: () => false,
       navigateActiveTab: async () => false,
-      getActiveTabUrl: async () => null,
     };
   }
 
