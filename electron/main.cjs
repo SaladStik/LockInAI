@@ -553,6 +553,10 @@ ipcMain.handle("garden:list", () => db.listGardenPlants());
 ipcMain.handle("garden:add", (_e, plant) => db.addGardenPlant(plant));
 ipcMain.handle("garden:clear", () => db.clearGardenPlants());
 
+ipcMain.handle("custom-sessions:list", () => db.listCustomSessions());
+ipcMain.handle("custom-sessions:add", (_e, payload) => db.addCustomSession(payload));
+ipcMain.handle("custom-sessions:remove", (_e, id) => db.removeCustomSession(id));
+
 ipcMain.handle("permissions:status", () => getPermissionsStatus());
 ipcMain.handle("permissions:request", () => requestMacPermissions({ prompt: true }));
 

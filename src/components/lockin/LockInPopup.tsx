@@ -6,6 +6,7 @@ import { SettingsScreen } from "./SettingsScreen";
 import { useActiveApp } from "@/hooks/useActiveApp";
 import { useCustomApps } from "@/hooks/useCustomApps";
 import { useCustomSites } from "@/hooks/useCustomSites";
+import { useCustomSessions } from "@/hooks/useCustomSessions";
 import { useGarden } from "@/hooks/useGarden";
 import { streakSkin, streakSkinLabel } from "./achievements";
 import { isAllowedFocusApp, hostnameOf } from "@/lib/apps";
@@ -27,6 +28,7 @@ import { ActiveAppFooter } from "./ActiveAppFooter";
 export function LockInPopup() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [subject, setSubject] = useState<string>("Coding");
+  const [sessionKey, setSessionKey] = useState<string>("builtin:Coding");
   const [plantName, setPlantName] = useState<string>("");
   const [activePlantName, setActivePlantName] = useState<string>("");
   const [minutes, setMinutes] = useState<number>(25);
@@ -62,6 +64,30 @@ export function LockInPopup() {
     addSite: addCustomSite,
     removeSite: removeCustomSite,
   } = useCustomSites();
+  const {
+    sessions: customSessions,
+    addSession: addCustomSession,
+    removeSession: removeCustomSession,
+  } = useCustomSessions();
+
+  function selectBuiltInSubject(name: string) {
+    setSessionKey(`builtin:${name}`);
+    setSubject(name);
+  }
+
+  function selectCustomSession(session: import("@/types/electron").CustomSession) {
+    setSessionKey(`custom:${session.id}`);
+    setSubject(session.name);
+    setApps([...session.default_apps]);
+    setSites([...session.default_sites]);
+  }
+
+  async function handleRemoveCustomSession(id: number) {
+    if (sessionKey === `custom:${id}`) {
+      selectBuiltInSubject("Coding");
+    }
+    await removeCustomSession(id);
+  }
 
   // Tell the main process which apps + sites are allowed so it can snap back.
   useEffect(() => {
@@ -342,12 +368,13 @@ export function LockInPopup() {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -6, filter: "blur(6px)" }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-0 flex flex-col px-6 pb-6 pt-3"
+            className="absolute inset-0 flex min-h-0 flex-col overflow-hidden px-6 pb-6 pt-3"
           >
             {screen === "welcome" && (
               <WelcomeScreen
                 onNext={() => {
                   setPlantName("");
+                  selectBuiltInSubject("Coding");
                   setScreen("subject");
                 }}
                 skin={skin}
@@ -358,9 +385,18 @@ export function LockInPopup() {
             {screen === "subject" && (
               <SubjectScreen
                 subject={subject}
-                setSubject={setSubject}
+                sessionKey={sessionKey}
                 plantName={plantName}
                 setPlantName={setPlantName}
+                customSessions={customSessions}
+                customApps={customApps}
+                detectedAppName={activeApp?.app ?? null}
+                onSelectBuiltIn={selectBuiltInSubject}
+                onSelectCustom={selectCustomSession}
+                onAddCustomSession={addCustomSession}
+                onRemoveCustomSession={handleRemoveCustomSession}
+                onAddCustomApp={addCustomApp}
+                onRemoveCustomApp={removeCustomApp}
                 onNext={() => setScreen("time")}
               />
             )}
@@ -436,6 +472,7 @@ export function LockInPopup() {
                   setEmergencyExit(false);
                   setPlantName("");
                   setActivePlantName("");
+                  selectBuiltInSubject("Coding");
                   setScreen("subject");
                 }}
                 onGarden={() => setScreen("garden")}
