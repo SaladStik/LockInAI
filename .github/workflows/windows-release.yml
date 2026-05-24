@@ -1,0 +1,86 @@
+name: Windows Release
+
+# Manual trigger only — this never runs on push/PR. Start it from the
+# Actions tab ("Run workflow") or `gh workflow run "Windows Release"`.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish to'
+        required: true
+        default: 'Windows'
+      mark_latest:
+        description: 'Mark this release as "Latest" on GitHub'
+        type: boolean
+        required: false
+        default: false
+      prerelease:
+        description: 'Publish as a pre-release'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write   # needed to create the tag, release, and upload assets
+
+jobs:
+  build:
+    name: Build & publish Windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read app version
+        id: meta
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Build Windows installer (NSIS)
+        # next build → static export, then electron-builder packages the NSIS
+        # installer. The extension/ folder is bundled into the app via the
+        # "extraResources" entry in package.json, so it ships inside the install.
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bundle extension as a standalone asset
+        # Also ship the companion extension alongside the installer so users can
+        # "Load unpacked" without digging into the app's resources.
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.meta.outputs.version }}"
+          Compress-Archive -Path extension/* -DestinationPath "release/lockin-ai-extension-$ver.zip" -Force
+
+      - name: List build output
+        shell: bash
+        run: ls -la release
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: Windows Release (v${{ steps.meta.outputs.version }})
+          make_latest: ${{ inputs.mark_latest }}
+          prerelease: ${{ inputs.prerelease }}
+          fail_on_unmatched_files: true
+          body: |
+            **LOCK//IN AI — Windows build (v${{ steps.meta.outputs.version }})**
+
+            - `*.exe` — Windows installer (NSIS). The companion extension is bundled inside the app.
+            - `lockin-ai-extension-*.zip` — the companion browser extension, for manual "Load unpacked" install in any Chromium browser.
+
+            Built from `${{ github.sha }}`.
+          files: |
+            release/*.exe
+            release/lockin-ai-extension-*.zip
