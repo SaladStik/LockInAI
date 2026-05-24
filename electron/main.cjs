@@ -66,6 +66,7 @@ function createWindow() {
     useContentSize: true,
     resizable: false,
     fullscreenable: false,
+    maximizable: false,
     frame: false,
     transparent: true,
     backgroundColor: "#00000000",
