@@ -76,7 +76,51 @@
   const CONTAINER_SELECTOR =
     'li, article, [class*="result" i], [data-testid*="result" i], .g, .b_algo, .MjjYud, .snippet';
 
+  // --- LOCK//IN AI badge (built via DOM so Trusted-Types CSP can't reject it) ---
+  function svgEl(tag, attrs) {
+    const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function lockieSvg() {
+    const svg = svgEl("svg", { viewBox: "0 0 100 100", width: "24", height: "24" });
+    const glow = svgEl("circle", { cx: 50, cy: 50, r: 46, fill: "rgba(110,200,240,0.25)" });
+    const body = svgEl("circle", { cx: 50, cy: 50, r: 34, fill: "#5bc8e6", stroke: "#cfeeff", "stroke-width": 2 });
+    const shine = svgEl("ellipse", { cx: 40, cy: 38, rx: 11, ry: 6, fill: "rgba(255,255,255,0.55)" });
+    const eyeL = svgEl("circle", { cx: 41, cy: 50, r: 3.8, fill: "#0b1a22" });
+    const eyeR = svgEl("circle", { cx: 59, cy: 50, r: 3.8, fill: "#0b1a22" });
+    const smile = svgEl("path", { d: "M41 60 Q50 69 59 60", stroke: "#0b1a22", "stroke-width": 2.6, fill: "none", "stroke-linecap": "round" });
+    svg.append(glow, body, shine, eyeL, eyeR, smile);
+    return svg;
+  }
+  function mountBadge() {
+    const b = document.createElement("div");
+    b.id = "lockin-badge";
+    Object.assign(b.style, {
+      position: "fixed", top: "12px", left: "12px", zIndex: "2147483647",
+      display: "flex", alignItems: "center", gap: "7px",
+      padding: "5px 12px 5px 6px", borderRadius: "999px",
+      background: "rgba(10,18,28,0.82)", color: "#def3ff",
+      fontFamily: "-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif",
+      fontSize: "11px", fontWeight: "700", letterSpacing: "0.14em",
+      textTransform: "uppercase", lineHeight: "1",
+      boxShadow: "0 6px 22px rgba(0,0,0,0.45)",
+      border: "1px solid rgba(120,200,255,0.28)",
+      pointerEvents: "none", userSelect: "none",
+    });
+    const span = document.createElement("span");
+    span.textContent = "LOCK//IN AI";
+    b.append(lockieSvg(), span);
+    (document.body || document.documentElement).appendChild(b);
+  }
+  function updateBadge() {
+    const existing = document.getElementById("lockin-badge");
+    if (state.active && !existing) mountBadge();
+    else if (!state.active && existing) existing.remove();
+  }
+
   function filterAll() {
+    updateBadge();
     if (!state.active) return;
     // Organic result titles are headings either wrapping an <a> (Bing-style) or
     // wrapped inside one (Google-style). Match both, then check the destination.
