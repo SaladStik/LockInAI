@@ -11,6 +11,7 @@ import { speak, setVoiceMuted, isVoiceMuted } from "@/lib/voice";
 import { getHideGemini, setHideGemini } from "@/lib/browserPrefs";
 import { isOnboarded } from "@/lib/onboarding";
 import type { Screen } from "./types";
+import { normalizeAllowedApps } from "./constants";
 
 /**
  * All the LOCK//IN session state, side-effects and handlers — extracted from the
@@ -26,7 +27,7 @@ export function useLockInSession() {
   const [plantName, setPlantName] = useState<string>("");
   const [activePlantName, setActivePlantName] = useState<string>("");
   const [minutes, setMinutes] = useState<number>(25);
-  const [apps, setApps] = useState<string[]>(["Chrome", "VSCode", "Notion"]);
+  const [apps, setApps] = useState<string[]>(["Cursor", "Browser", "Notion"]);
   const [sites, setSites] = useState<string[]>(["chatgpt.com", "github.com"]);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
   const [streak] = useState<number>(7);
@@ -78,7 +79,7 @@ export function useLockInSession() {
   function selectCustomSession(session: import("@/types/electron").CustomSession) {
     setSessionKey(`custom:${session.id}`);
     setSubject(session.name);
-    setApps([...session.default_apps]);
+    setApps(normalizeAllowedApps([...session.default_apps]));
     setSites([...session.default_sites]);
   }
 
@@ -87,7 +88,7 @@ export function useLockInSession() {
   function startNewCustomSession() {
     setSessionKey("new");
     setSubject("");
-    setApps(["Chrome"]); // a starter so the preset is never empty
+    setApps(["Browser"]); // a starter so the preset is never empty
     setSites([]);
   }
 
@@ -121,7 +122,7 @@ export function useLockInSession() {
       reloadCustomSessions(),
     ]);
     selectBuiltInSubject("Coding");
-    setApps(["Chrome", "VSCode", "Notion"]);
+    setApps(["Cursor", "Browser", "Notion"]);
     setSites(["chatgpt.com", "github.com"]);
     setPlantName("");
     setActivePlantName("");
@@ -265,11 +266,11 @@ export function useLockInSession() {
 
   function startSession() {
     // Building a new custom session — persist it as a reusable preset. The DB
-    // requires at least one allowed app, so fall back to Chrome.
+    // requires at least one allowed app, so fall back to Browser.
     if (sessionKey === "new" && subject.trim()) {
       addCustomSession({
         name: subject.trim(),
-        default_apps: apps.length ? apps : ["Chrome"],
+        default_apps: normalizeAllowedApps(apps.length ? apps : ["Browser"]),
         default_sites: sites,
       }).catch((e) => console.warn("[custom-session] save failed:", e?.message ?? e));
     }

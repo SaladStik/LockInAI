@@ -1,14 +1,15 @@
 export const SUBJECTS = ["Math", "Coding", "Reading", "Writing", "Exam Prep"];
 
 export const ALL_APPS = [
-  "Chrome",
+  "Cursor",
+  "Browser",
   "VSCode",
   "Notion",
-  "YouTube",
   "Netflix",
-  "PDF Viewer",
   "Figma",
   "Spotify",
+  "Discord",
+  "Zoom",
 ];
 
 export const ALL_SITES = [
@@ -19,3 +20,13 @@ export const ALL_SITES = [
   "developer.mozilla.org",
   "youtube.com",
 ];
+
+/** Map legacy app labels to their current names. */
+export function normalizeAllowedApp(label: string): string {
+  if (label.toLowerCase() === "chrome") return "Browser";
+  return label;
+}
+
+export function normalizeAllowedApps(apps: string[]): string[] {
+  return apps.map(normalizeAllowedApp);
+}
