@@ -35,6 +35,7 @@ export type GardenPlant = {
   status: "alive" | "dead";
   days: number;
   subject: string;
+  minutes: number;
   created_at?: number;
 };
 

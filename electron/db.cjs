@@ -27,6 +27,7 @@ function init(userDataDir) {
       status TEXT NOT NULL CHECK (status IN ('alive', 'dead')),
       days INTEGER NOT NULL,
       subject TEXT NOT NULL,
+      minutes INTEGER NOT NULL DEFAULT 25,
       created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
     );
     CREATE TABLE IF NOT EXISTS custom_sessions (
@@ -37,17 +38,23 @@ function init(userDataDir) {
       created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
     );
   `);
+  // Migration: add `minutes` to gardens created before rarity existed.
+  try {
+    db.exec("ALTER TABLE garden_plants ADD COLUMN minutes INTEGER NOT NULL DEFAULT 25");
+  } catch {
+    /* column already exists */
+  }
   seedGardenIfEmpty();
   return db;
 }
 
 const SEED_GARDEN = [
-  { id: "p1", name: "Aurora", stage: 4, status: "alive", days: 23, subject: "Coding" },
-  { id: "p2", name: "Sprig", stage: 3, status: "alive", days: 14, subject: "Math" },
-  { id: "p3", name: "Ember", stage: 2, status: "alive", days: 7, subject: "Reading" },
-  { id: "p4", name: "Mossy", stage: 0, status: "dead", days: 2, subject: "Writing" },
-  { id: "p5", name: "Vine", stage: 1, status: "dead", days: 4, subject: "Exam Prep" },
-  { id: "p6", name: "Lumen", stage: 2, status: "dead", days: 9, subject: "Coding" },
+  { id: "p1", name: "Aurora", stage: 4, status: "alive", days: 23, subject: "Coding", minutes: 95 },
+  { id: "p2", name: "Sprig", stage: 3, status: "alive", days: 14, subject: "Math", minutes: 50 },
+  { id: "p3", name: "Ember", stage: 2, status: "alive", days: 7, subject: "Reading", minutes: 25 },
+  { id: "p4", name: "Mossy", stage: 0, status: "dead", days: 2, subject: "Writing", minutes: 10 },
+  { id: "p5", name: "Vine", stage: 1, status: "dead", days: 4, subject: "Exam Prep", minutes: 65 },
+  { id: "p6", name: "Lumen", stage: 2, status: "dead", days: 9, subject: "Coding", minutes: 30 },
 ];
 
 function seedGardenIfEmpty() {
@@ -55,10 +62,10 @@ function seedGardenIfEmpty() {
   const row = db.prepare("SELECT COUNT(*) AS c FROM garden_plants").get();
   if (Number(row?.c ?? 0) > 0) return;
   const stmt = db.prepare(
-    "INSERT INTO garden_plants (id, name, stage, status, days, subject) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO garden_plants (id, name, stage, status, days, subject, minutes) VALUES (?, ?, ?, ?, ?, ?, ?)",
   );
   for (const p of SEED_GARDEN) {
-    stmt.run(p.id, p.name, p.stage, p.status, p.days, p.subject);
+    stmt.run(p.id, p.name, p.stage, p.status, p.days, p.subject, p.minutes);
   }
 }
 
@@ -150,7 +157,7 @@ function listGardenPlants() {
   if (!db) throw new Error("db not initialized");
   return db
     .prepare(
-      `SELECT id, name, stage, status, days, subject, created_at
+      `SELECT id, name, stage, status, days, subject, minutes, created_at
        FROM garden_plants
        ORDER BY created_at DESC`,
     )
@@ -165,6 +172,7 @@ function addGardenPlant(plant) {
   const status = plant?.status;
   const days = Number(plant?.days);
   const subject = String(plant?.subject ?? "").trim();
+  const minutes = Number.isFinite(Number(plant?.minutes)) ? Number(plant.minutes) : 25;
   if (!id) throw new Error("id required");
   if (!name) throw new Error("name required");
   if (!Number.isFinite(stage) || stage < 0) throw new Error("invalid stage");
@@ -175,11 +183,11 @@ function addGardenPlant(plant) {
   if (subject.length > 64) throw new Error("subject too long");
 
   db.prepare(
-    `INSERT INTO garden_plants (id, name, stage, status, days, subject)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, name, stage, status, days, subject);
+    `INSERT INTO garden_plants (id, name, stage, status, days, subject, minutes)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, name, stage, status, days, subject, Math.max(0, Math.round(minutes)));
 
-  return { id, name, stage, status, days, subject };
+  return { id, name, stage, status, days, subject, minutes };
 }
 
 function clearGardenPlants() {

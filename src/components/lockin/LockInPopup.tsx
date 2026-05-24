@@ -132,11 +132,12 @@ export function LockInPopup() {
         const next = Math.min(4, s + 1);
         void addPlant({
           id: createPlantId(),
-          name: activePlantName,
+          name: activePlantName || resolvePlantName(plantName, garden.map((p) => p.name)),
           stage: next,
           status: "alive",
           days: 1,
           subject,
+          minutes,
         });
         return next;
       });
@@ -238,11 +239,12 @@ export function LockInPopup() {
     setTotalSessions((n) => n + 1);
     void addPlant({
       id: createPlantId(),
-      name: activePlantName,
+      name: activePlantName || resolvePlantName(plantName, garden.map((p) => p.name)),
       stage: Math.max(0, stage - 1),
       status: "dead",
       days: 1,
       subject,
+      minutes,
     });
     setScreen("complete");
     speak("Streak broken. Your Lockie is disappointed.");
@@ -494,6 +496,8 @@ export function LockInPopup() {
                     status,
                     days: 1 + Math.floor(Math.random() * 20),
                     subject,
+                    // random length so the dev buttons showcase every rarity
+                    minutes: [10, 25, 35, 50, 75, 95, 120][Math.floor(Math.random() * 7)],
                   })
                 }
               />
