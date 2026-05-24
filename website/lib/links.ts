@@ -13,5 +13,5 @@ export const DOWNLOADS = {
   // macOS (Apple Silicon) — published under the "Mac" release tag.
   mac: dl("Mac", "LOCKIN.AI-0.1.0-arm64.dmg"),
   // No Windows build yet — send to the releases page.
-  win: RELEASES,
+  win: dl("Windows", "LOCKIN.AI.Setup-0.1.0.exe"),
 };
