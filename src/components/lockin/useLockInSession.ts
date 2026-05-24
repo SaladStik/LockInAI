@@ -9,6 +9,7 @@ import { isAllowedFocusApp } from "@/lib/apps";
 import { createPlantId, resolvePlantName, type GardenPlant } from "@/lib/garden";
 import { speak, setVoiceMuted, isVoiceMuted } from "@/lib/voice";
 import { getHideGemini, setHideGemini } from "@/lib/browserPrefs";
+import { isOnboarded } from "@/lib/onboarding";
 import type { Screen } from "./types";
 
 /**
@@ -17,7 +18,9 @@ import type { Screen } from "./types";
  * effects and their dependency arrays are exactly as before.
  */
 export function useLockInSession() {
-  const [screen, setScreen] = useState<Screen>("welcome");
+  const [screen, setScreen] = useState<Screen>(() =>
+    isOnboarded() ? "welcome" : "onboarding",
+  );
   const [subject, setSubject] = useState<string>("Coding");
   const [sessionKey, setSessionKey] = useState<string>("builtin:Coding");
   const [plantName, setPlantName] = useState<string>("");
@@ -99,8 +102,18 @@ export function useLockInSession() {
     await removeCustomSession(id);
   }
 
+  /**
+   * Full app reset — wipes every persisted thing (garden, custom apps/sites,
+   * sessions, prefs incl. onboarding flag) and drops the user back at the
+   * onboarding flow so they go through it fresh.
+   */
   async function clearGarden() {
-    await clearGardenDb();
+    const api = window.electronAPI;
+    if (api?.resetApp) {
+      await api.resetApp();
+    } else {
+      await clearGardenDb();
+    }
     await Promise.all([
       reloadGarden(),
       reloadCustomApps(),
@@ -112,7 +125,12 @@ export function useLockInSession() {
     setSites(["chatgpt.com", "github.com"]);
     setPlantName("");
     setActivePlantName("");
-    setScreen("welcome");
+    setBreachCount(0);
+    setBreach(false);
+    // After reset there's no onboarded flag — show the onboarding flow again.
+    // Reloading the renderer is the cleanest way to re-run the prefs bootstrap
+    // and re-evaluate the initial screen from scratch.
+    window.location.reload();
   }
 
   // Tell the main process which apps + sites are allowed so it can snap back.

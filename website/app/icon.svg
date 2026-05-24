@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- LOCK//IN AI favicon — Lockie the companion orb on a dark tile -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#16223b"/>
+      <stop offset="100%" stop-color="#0c1322"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="40%" cy="34%" r="72%">
+      <stop offset="0%" stop-color="#dff2ff"/>
+      <stop offset="58%" stop-color="#3fb9ec"/>
+      <stop offset="100%" stop-color="#2456a0"/>
+    </radialGradient>
+    <radialGradient id="spec" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="100" height="100" rx="24" fill="url(#bg)"/>
+
+  <!-- cyan glow halo -->
+  <circle cx="50" cy="51" r="34" fill="#46c7f0" opacity="0.28"/>
+
+  <!-- antenna -->
+  <line x1="50" y1="22" x2="50" y2="13" stroke="#8fe2ff" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="50" cy="11.5" r="3" fill="#cdeeff"/>
+
+  <!-- body -->
+  <circle cx="50" cy="52" r="29" fill="url(#orb)" stroke="#8fe2ff" stroke-width="1.6"/>
+  <ellipse cx="40" cy="40" rx="11" ry="6.5" fill="url(#spec)"/>
+
+  <!-- eyes -->
+  <circle cx="41" cy="52" r="4.2" fill="#0b1322"/>
+  <circle cx="42.2" cy="50.6" r="1.4" fill="#ffffff"/>
+  <circle cx="59" cy="52" r="4.2" fill="#0b1322"/>
+  <circle cx="60.2" cy="50.6" r="1.4" fill="#ffffff"/>
+
+  <!-- smile -->
+  <path d="M43 64 Q50 73 59 64" stroke="#0b1322" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+</svg>

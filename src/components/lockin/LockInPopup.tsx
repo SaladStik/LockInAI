@@ -4,6 +4,7 @@ import { Particles } from "./Particles";
 import { SettingsScreen } from "./SettingsScreen";
 import { hostnameOf } from "@/lib/apps";
 import { createPlantId, resolvePlantName } from "@/lib/garden";
+import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { WelcomeScreen } from "./screens/WelcomeScreen";
 import { SubjectScreen } from "./screens/SubjectScreen";
 import { TimeScreen } from "./screens/TimeScreen";
@@ -140,6 +141,9 @@ export function LockInPopup() {
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             className="absolute inset-0 flex min-h-0 flex-col overflow-hidden px-6 pb-6 pt-3"
           >
+            {screen === "onboarding" && (
+              <OnboardingScreen onComplete={() => setScreen("welcome")} />
+            )}
             {screen === "welcome" && (
               <WelcomeScreen
                 onNext={() => {

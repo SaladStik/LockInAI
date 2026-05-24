@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("node:path");
+const fs = require("node:fs");
 const db = require("./db.cjs");
 const { ALWAYS_ALLOWED_HOSTS } = require("./app-match.cjs");
 const blockedServer = require("./blocked-server.cjs");
@@ -15,7 +16,36 @@ const extBridge = createBridge();
 const isDev = process.env.NODE_ENV === "development";
 const devUrl = process.env.NEXT_DEV_SERVER_URL;
 
+// Force the visible app name to "LOCK//IN AI" even in dev (where the Electron
+// binary would otherwise show as "Electron" in the macOS menu bar, Dock label,
+// Windows taskbar, alt-tab switcher, system tray, etc.).
+const APP_NAME = "LOCK//IN AI";
+app.setName(APP_NAME);
+if (process.platform === "win32") {
+  // Windows uses the AppUserModelID to group windows in the taskbar and label
+  // notifications. Match electron-builder's appId from package.json.
+  app.setAppUserModelId("ai.lockin.app");
+}
+process.title = APP_NAME;
+
+// `app.setName("LOCK//IN AI")` would also point userData at
+// `~/Library/Application Support/LOCK//IN AI/`, which the filesystem collapses
+// into the two-level `LOCK/IN AI/`. Pin the data dir to a plain folder so the
+// SQLite DB + Electron cache live somewhere sensible, while the *display* name
+// remains "LOCK//IN AI" everywhere the user sees it.
+{
+  const base = app.getPath("appData");
+  app.setPath("userData", path.join(base, "LockInAI"));
+}
+
+// Lockie app icon (used for the window/dock in dev; packaged builds get their
+// icon from electron-builder via build/icon.icns|ico). Guarded so a missing
+// file is harmless.
+const appIconPath = path.join(__dirname, "..", "build", "icon.png");
+const appIcon = fs.existsSync(appIconPath) ? appIconPath : undefined;
+
 let blockedPageBaseUrl = null; // set by blocked-server start
+let extensionInstallUrl = null;
 
 function blockedPageUrlFor(allowedSites) {
   if (!blockedPageBaseUrl) return "about:blank";
@@ -29,8 +59,10 @@ const focusEngine = createFocusEngine({ extBridge, isDev, blockedPageUrlFor });
 
 function createWindow() {
   const win = new BrowserWindow({
+    title: APP_NAME,
     width: 400,
     height: 680,
+    icon: appIcon,
     useContentSize: true,
     resizable: false,
     fullscreenable: false,
@@ -118,6 +150,65 @@ ipcMain.handle("custom-sessions:list", () => db.listCustomSessions());
 ipcMain.handle("custom-sessions:add", (_e, payload) => db.addCustomSession(payload));
 ipcMain.handle("custom-sessions:remove", (_e, id) => db.removeCustomSession(id));
 
+// Prefs key-value (replaces renderer localStorage). The bootstrap channel is
+// SYNCHRONOUS so the preload can deliver the full prefs map to the renderer
+// before any JS runs — keeps voice/onboarding/etc. initializers synchronous.
+ipcMain.on("prefs:bootstrap", (e) => {
+  try {
+    e.returnValue = db.getAllPrefs();
+  } catch (err) {
+    console.error("[prefs] bootstrap failed:", err?.message ?? err);
+    e.returnValue = {};
+  }
+});
+ipcMain.handle("prefs:set", (_e, key, value) => db.setPref(key, value));
+
+// Full app reset — wipes garden, custom apps/sites, sessions, prefs (onboarding too).
+ipcMain.handle("app:reset", () => {
+  db.resetAll();
+  return true;
+});
+
+// ---- IPC: extension install / status -------------------------------------
+ipcMain.handle("extension:status", () => ({
+  connected: extBridge.isConnected ? extBridge.isConnected() : false,
+}));
+
+ipcMain.handle("extension:open-install", async () => {
+  // In dev the unpacked extension lives at <repo>/extension. In a packaged app
+  // it ships under resources/extension (declared via extraResources in
+  // electron-builder config — see package.json "build.extraResources").
+  const candidates = [
+    path.join(__dirname, "..", "extension"),
+    path.join(process.resourcesPath ?? "", "extension"),
+  ];
+  let extensionPath = null;
+  for (const p of candidates) {
+    try {
+      // Avoid pulling fs at the top; require lazily.
+      if (require("node:fs").existsSync(path.join(p, "manifest.json"))) {
+        extensionPath = p;
+        break;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  // Reveal the extension folder so the user can drag it onto the extensions page.
+  if (extensionPath) shell.showItemInFolder(extensionPath);
+  // Open our install page in the user's ACTUAL default browser — `chrome://`
+  // URLs only resolve in Chromium browsers, but `http://` always lands in the
+  // real default. The page sniffs the user-agent and links to the correct
+  // browser-specific extensions URL (chrome://, edge://, vivaldi://, …).
+  const opened = extensionInstallUrl ?? "https://www.google.com/";
+  try {
+    await shell.openExternal(opened);
+  } catch (e) {
+    console.error("[extension] open install failed:", e?.message ?? e);
+  }
+  return { extensionPath, installUrl: extensionInstallUrl };
+});
+
 // ---- IPC: macOS permissions ----------------------------------------------
 ipcMain.handle("permissions:status", () => permissions.getPermissionsStatus());
 ipcMain.handle("permissions:request", () => permissions.requestMacPermissions({ prompt: true }));
@@ -141,9 +232,21 @@ ipcMain.on("open:screen-recording-settings", () => {
 app.whenReady().then(async () => {
   db.init(app.getPath("userData"));
 
+  // Show Lockie on the macOS dock in dev (packaged builds use the bundle icon).
+  if (isDev && appIcon && process.platform === "darwin") {
+    try {
+      app.dock?.setIcon(appIcon);
+    } catch {
+      /* non-fatal */
+    }
+  }
+
   try {
-    const { url } = await blockedServer.start({ alwaysAllowed: ALWAYS_ALLOWED_HOSTS });
+    const { url, installUrl } = await blockedServer.start({
+      alwaysAllowed: ALWAYS_ALLOWED_HOSTS,
+    });
     blockedPageBaseUrl = url;
+    extensionInstallUrl = installUrl;
     console.log("[blocked-server] listening at", url);
   } catch (e) {
     console.error("[blocked-server] failed to start:", e?.message ?? e);

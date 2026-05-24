@@ -1,0 +1,288 @@
+/* ============================================================
+   LOCK//IN AI — landing page styles
+   Design language lifted from the app's globals.css and the
+   extension "new tab" search skin: cozy-cyberpunk dark theme,
+   bio-luminescent leaf green + plasma cyan, aurora glow, glass.
+   ============================================================ */
+:root {
+  --background: oklch(0.16 0.025 250);
+  --foreground: oklch(0.96 0.015 160);
+  --muted-foreground: oklch(0.68 0.025 200);
+  --primary: oklch(0.82 0.18 155);
+  --primary-glow: oklch(0.88 0.22 158);
+  --primary-foreground: oklch(0.15 0.03 250);
+  --accent: oklch(0.78 0.16 220);
+  --accent-glow: oklch(0.85 0.2 215);
+  --radius: 1.25rem;
+  --gradient-aurora:
+    radial-gradient(ellipse at 20% 0%, oklch(0.35 0.12 220 / 50%), transparent 55%),
+    radial-gradient(ellipse at 80% 100%, oklch(0.35 0.14 155 / 45%), transparent 55%),
+    radial-gradient(ellipse at 50% 50%, oklch(0.22 0.05 280 / 40%), transparent 70%);
+  --gradient-leaf: linear-gradient(135deg, var(--primary-glow), var(--accent));
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* aurora wash + faint grid behind everything */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  background: var(--gradient-aurora);
+  z-index: -2;
+  animation: ambient-drift 22s ease-in-out infinite alternate;
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(oklch(1 0 0 / 2.5%) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(1 0 0 / 2.5%) 1px, transparent 1px);
+  background-size: 64px 64px;
+  z-index: -1;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black, transparent 80%);
+  mask-image: radial-gradient(ellipse at 50% 30%, black, transparent 80%);
+}
+
+@keyframes ambient-drift { 0% { transform: translate(0,0); } 100% { transform: translate(40px,-60px); } }
+@keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+@keyframes float-orb { 0%,100% { transform: translateY(-4px); } 50% { transform: translateY(-18px); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(18px); filter: blur(6px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+
+/* ---- top bar: echoes the extension's "new tab" glass header ---- */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  background: linear-gradient(oklch(0.11 0.02 250 / 0.92), oklch(0.13 0.02 250 / 0.78));
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid oklch(1 0 0 / 8%);
+  box-shadow: 0 8px 30px -18px oklch(0 0 0 / 0.6);
+}
+.brand {
+  font: 700 13px/1 ui-monospace, "SF Mono", monospace;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: oklch(0.85 0.16 215);
+  text-shadow: 0 0 18px oklch(0.6 0.16 220 / 0.45);
+  display: flex; align-items: center; gap: 2px;
+}
+.brand .slash { color: oklch(0.7 0.18 220); }
+.brand .ai {
+  color: var(--primary-glow);
+  margin-left: 8px;
+  text-shadow: 0 0 18px color-mix(in oklab, var(--primary) 50%, transparent);
+}
+.topbar nav { display: flex; align-items: center; gap: 26px; }
+.topbar nav a {
+  color: var(--muted-foreground);
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  transition: color 0.18s ease;
+}
+.topbar nav a:hover { color: var(--foreground); }
+.topbar nav a.ghbtn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid oklch(1 0 0 / 12%);
+  background: oklch(0.16 0.02 250 / 0.9);
+  color: var(--foreground);
+}
+.topbar nav a.ghbtn:hover { border-color: var(--accent); }
+
+main { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+/* ---- hero ---- */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-top: 96px;
+  gap: 26px;
+}
+.eyebrow {
+  font: 600 11px/1 ui-monospace, "SF Mono", monospace;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--accent-glow);
+  animation: rise 0.6s var(--ease-soft) both;
+}
+.title {
+  font-size: clamp(2.6rem, 7vw, 5rem);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  max-width: 16ch;
+  text-shadow: 0 0 40px color-mix(in oklab, var(--primary) 28%, transparent);
+  animation: rise 0.7s var(--ease-soft) 0.05s both;
+}
+.title .grow {
+  background: var(--gradient-leaf);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.lede {
+  max-width: 58ch;
+  font-size: clamp(1rem, 2.2vw, 1.2rem);
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  animation: rise 0.7s var(--ease-soft) 0.12s both;
+}
+.lede .hl { color: var(--accent-glow); }
+
+.downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: center;
+  align-items: center;
+  animation: rise 0.7s var(--ease-soft) 0.2s both;
+}
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 24px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary {
+  background: var(--gradient-leaf);
+  color: var(--primary-foreground);
+  box-shadow: 0 0 38px -10px color-mix(in oklab, var(--primary) 70%, transparent);
+}
+.btn-primary::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 32%), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3.2s linear infinite;
+  opacity: 0.5;
+}
+.btn-primary:hover { box-shadow: 0 0 54px -8px color-mix(in oklab, var(--primary) 85%, transparent); }
+.btn-ghost {
+  background: oklch(0.16 0.02 250 / 0.6);
+  color: var(--foreground);
+  border: 1px solid oklch(1 0 0 / 12%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.btn-ghost:hover { border-color: var(--accent); box-shadow: 0 0 30px -12px color-mix(in oklab, var(--accent) 60%, transparent); }
+.btn .os-sub { display: block; font-size: 0.72rem; font-weight: 500; opacity: 0.75; }
+.btn .label { text-align: left; }
+.btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+.platform-note {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  opacity: 0.85;
+  animation: rise 0.7s var(--ease-soft) 0.26s both;
+}
+.platform-note a { color: var(--accent-glow); text-decoration: none; }
+.platform-note a:hover { text-decoration: underline; }
+
+/* ---- Lockie ---- */
+.lockie-wrap {
+  position: relative;
+  width: 200px; height: 200px;
+  display: flex; align-items: center; justify-content: center;
+  animation: rise 0.8s var(--ease-soft) both;
+}
+.lockie-wrap .halo {
+  position: absolute; inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent) 60%, transparent), transparent 65%);
+  filter: blur(18px);
+  animation: breathe 4s var(--ease-soft) infinite;
+}
+.lockie-wrap svg.orb { position: relative; width: 170px; height: 170px; overflow: visible; animation: float-orb 4.2s ease-in-out infinite; }
+.lockie-wrap svg.orb #eyes { transition: transform 0.12s ease; transform-origin: center 50px; }
+.lockie-wrap svg.orb.blinking #eyes { transform: scaleY(0.1); }
+
+/* ---- features ---- */
+.features { padding: 110px 0 40px; }
+.section-head { text-align: center; margin-bottom: 56px; }
+.section-head .eyebrow { display: block; margin-bottom: 12px; }
+.section-head h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 700; letter-spacing: -0.02em; }
+.section-head p { margin-top: 12px; color: var(--muted-foreground); }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 18px;
+}
+.card {
+  position: relative;
+  padding: 28px;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, oklch(1 0 0 / 4%), oklch(1 0 0 / 1%));
+  border: 1px solid oklch(1 0 0 / 8%);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  transition: transform 0.2s var(--ease-soft), border-color 0.2s ease;
+}
+.card:hover { transform: translateY(-4px); border-color: color-mix(in oklab, var(--primary) 40%, transparent); }
+.card .ico {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+  color: var(--primary-glow);
+}
+.card .ico svg { width: 22px; height: 22px; }
+.card h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
+.card p { font-size: 0.92rem; line-height: 1.55; color: var(--muted-foreground); }
+
+/* ---- final CTA ---- */
+.cta {
+  margin: 90px 0 60px;
+  padding: 64px 32px;
+  text-align: center;
+  border-radius: calc(var(--radius) + 12px);
+  background: linear-gradient(160deg, oklch(0.21 0.035 255 / 0.9), oklch(0.15 0.03 250 / 0.9));
+  border: 1px solid oklch(1 0 0 / 8%);
+  box-shadow: 0 30px 80px -30px oklch(0 0 0 / 0.7);
+}
+.cta h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 14px; }
+.cta p { color: var(--muted-foreground); margin-bottom: 30px; max-width: 48ch; margin-left: auto; margin-right: auto; }
+
+footer { padding: 30px 24px 50px; text-align: center; color: var(--muted-foreground); font-size: 0.8rem; }
+footer .brand { justify-content: center; margin-bottom: 10px; font-size: 11px; }
+
+@media (max-width: 600px) {
+  .topbar nav a:not(.ghbtn) { display: none; }
+  .hero { gap: 20px; }
+}

@@ -37,6 +37,10 @@ function init(userDataDir) {
       default_sites TEXT NOT NULL DEFAULT '[]',
       created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
     );
+    CREATE TABLE IF NOT EXISTS prefs (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
   `);
   // Migration: add `minutes` to gardens created before rarity existed.
   try {
@@ -201,6 +205,48 @@ function clearGardenPlants() {
   return true;
 }
 
+/** Full app reset — wipes every user table, including prefs (onboarding etc.). */
+function resetAll() {
+  if (!db) throw new Error("db not initialized");
+  db.exec(`
+    DELETE FROM garden_plants;
+    DELETE FROM custom_apps;
+    DELETE FROM custom_sites;
+    DELETE FROM custom_sessions;
+    DELETE FROM prefs;
+  `);
+  // Re-seed the garden so the welcome screen has something to render.
+  seedGardenIfEmpty();
+  return true;
+}
+
+// ---- Prefs (key-value, replaces renderer localStorage) -------------------
+function getPref(key) {
+  if (!db) throw new Error("db not initialized");
+  const row = db.prepare("SELECT value FROM prefs WHERE key = ?").get(String(key));
+  return row?.value ?? null;
+}
+
+function setPref(key, value) {
+  if (!db) throw new Error("db not initialized");
+  if (value === null || value === undefined) {
+    db.prepare("DELETE FROM prefs WHERE key = ?").run(String(key));
+    return null;
+  }
+  db.prepare(
+    "INSERT INTO prefs (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+  ).run(String(key), String(value));
+  return String(value);
+}
+
+function getAllPrefs() {
+  if (!db) throw new Error("db not initialized");
+  const rows = db.prepare("SELECT key, value FROM prefs").all();
+  const out = {};
+  for (const r of rows) out[r.key] = r.value;
+  return out;
+}
+
 function parseJsonArray(raw, field) {
   try {
     const parsed = JSON.parse(raw ?? "[]");
@@ -284,4 +330,8 @@ module.exports = {
   listCustomSessions,
   addCustomSession,
   removeCustomSession,
+  getPref,
+  setPref,
+  getAllPrefs,
+  resetAll,
 };

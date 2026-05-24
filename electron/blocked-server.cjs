@@ -12,6 +12,7 @@ const http = require("node:http");
  */
 
 const PATH = "/blocked";
+const INSTALL_PATH = "/install";
 
 function escapeHtml(s) {
   return String(s)
@@ -247,6 +248,138 @@ function renderPage({ allowedSites, alwaysAllowed }) {
 </html>`;
 }
 
+function renderInstallPage() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Install LOCK//IN AI Companion</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; }
+  body {
+    background: radial-gradient(circle at 20% 20%, oklch(0.28 0.1 220 / 60%), transparent 55%),
+                radial-gradient(circle at 80% 80%, oklch(0.26 0.12 155 / 50%), transparent 55%),
+                oklch(0.1 0.02 250);
+    color: oklch(0.95 0.02 250);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 32px;
+  }
+  .card {
+    width: 100%; max-width: 580px;
+    background: linear-gradient(160deg, oklch(0.16 0.025 250 / 0.92), oklch(0.08 0.02 250 / 0.92));
+    border: 1px solid oklch(1 0 0 / 8%);
+    border-radius: 28px;
+    padding: 32px;
+    box-shadow: 0 30px 80px -20px oklch(0 0 0 / 0.7),
+                0 0 60px -10px oklch(0.6 0.16 220 / 0.25);
+  }
+  h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.01em; }
+  .label { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: oklch(0.65 0.08 220); margin: 0 0 12px; }
+  p { color: oklch(0.72 0.04 250); font-size: 13px; line-height: 1.55; margin: 0 0 12px; }
+  .browser { font-family: ui-monospace, monospace; font-size: 12px; color: oklch(0.95 0.05 220); padding: 4px 10px; border-radius: 999px; background: oklch(0.6 0.16 220 / 0.15); border: 1px solid oklch(0.6 0.16 220 / 0.4); display: inline-block; }
+  ol { padding-left: 18px; color: oklch(0.85 0.03 250); font-size: 13px; line-height: 1.7; }
+  ol code { background: oklch(1 0 0 / 0.06); padding: 2px 6px; border-radius: 5px; font-family: ui-monospace, monospace; font-size: 12px; }
+  .urlrow { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; }
+  .urlbox { flex: 1; min-width: 0; padding: 10px 14px; border-radius: 12px; background: oklch(1 0 0 / 0.04); border: 1px solid oklch(1 0 0 / 0.08); font-family: ui-monospace, monospace; font-size: 13px; color: oklch(0.95 0.05 220); user-select: all; overflow-x: auto; white-space: nowrap; }
+  .cta { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px; background: oklch(0.6 0.16 220); color: oklch(0.1 0.02 250); font-weight: 600; text-decoration: none; border: 0; cursor: pointer; font-family: inherit; }
+  .cta:hover { background: oklch(0.66 0.18 220); }
+  .cta:disabled { opacity: 0.6; cursor: default; }
+  .why { font-size: 11px; color: oklch(0.55 0.04 250); margin: 0 0 6px; }
+  .muted { font-size: 11px; color: oklch(0.55 0.04 250); margin-top: 16px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <p class="label">install the companion extension</p>
+    <h1 id="title">Detecting your browser…</h1>
+    <p id="intro">We need a tiny extension installed so Lockie can see your tabs and gently steer you back during a focus session.</p>
+
+    <p class="why" id="why">Browsers block sites from linking to internal pages (like <code>chrome://extensions</code>). Copy the URL below and paste it into your address bar.</p>
+
+    <div class="urlrow">
+      <div class="urlbox" id="urlBox">—</div>
+      <button id="copyBtn" class="cta" type="button">Copy</button>
+    </div>
+
+    <ol id="steps" style="margin-top: 18px;">
+      <li>Paste the URL above into your address bar and press Enter.</li>
+      <li>Toggle <strong>Developer mode</strong> (top-right of the extensions page).</li>
+      <li>Click <strong>Load unpacked</strong>.</li>
+      <li>Select the <code>extension</code> folder revealed in your file browser.</li>
+      <li>Switch back to LOCK//IN — the popup will say <em>extension connected</em>.</li>
+    </ol>
+    <p class="muted">Browser detected: <span id="browserName" class="browser">—</span></p>
+  </div>
+<script>
+  (function () {
+    var ua = navigator.userAgent;
+    function detect() {
+      if (/Edg\\//.test(ua))     return { name: "Microsoft Edge", url: "edge://extensions/" };
+      if (/OPR\\//.test(ua) || /Opera/.test(ua)) return { name: "Opera", url: "opera://extensions/" };
+      if (/Brave/.test(ua) || (navigator.brave && navigator.brave.isBrave)) return { name: "Brave", url: "brave://extensions/" };
+      if (/Vivaldi/.test(ua))    return { name: "Vivaldi", url: "vivaldi://extensions/" };
+      if (/Arc/.test(ua))        return { name: "Arc", url: "chrome://extensions/" };
+      if (/Firefox/.test(ua))    return { name: "Firefox", url: "about:debugging#/runtime/this-firefox", firefox: true };
+      if (/Safari/.test(ua) && !/Chrome/.test(ua)) return { name: "Safari", url: null, safari: true };
+      if (/Chrome/.test(ua))     return { name: "Chrome", url: "chrome://extensions/" };
+      return { name: "Unknown browser", url: "chrome://extensions/" };
+    }
+    var b = detect();
+    document.getElementById("browserName").textContent = b.name;
+    var title = document.getElementById("title");
+    var urlBox = document.getElementById("urlBox");
+    var copyBtn = document.getElementById("copyBtn");
+    var why = document.getElementById("why");
+    var steps = document.getElementById("steps");
+
+    if (b.safari) {
+      title.textContent = "Safari isn't supported";
+      document.getElementById("intro").textContent = "The companion extension is built for Chromium-based browsers. Set Chrome, Edge, Brave, Arc or Vivaldi as your default to use Lockie's full focus features.";
+      urlBox.parentElement.style.display = "none";
+      why.style.display = "none";
+      steps.style.display = "none";
+      return;
+    }
+    title.textContent = "Install in " + b.name;
+    urlBox.textContent = b.url;
+
+    if (b.firefox) {
+      // Firefox lets you click http→about: links, no need to copy.
+      why.textContent = "Click the link below to open Firefox's debug page.";
+      urlBox.style.cursor = "pointer";
+      urlBox.addEventListener("click", function () { location.href = b.url; });
+      copyBtn.textContent = "Open page";
+      copyBtn.addEventListener("click", function () { location.href = b.url; });
+      steps.innerHTML = "<li>Click <strong>Load Temporary Add-on</strong>.</li><li>Select <code>extension/manifest.json</code> from the file browser window we opened.</li><li>Switch back to LOCK//IN — the popup will say <em>extension connected</em>.</li>";
+      return;
+    }
+
+    copyBtn.addEventListener("click", async function () {
+      try {
+        await navigator.clipboard.writeText(b.url);
+        var t = copyBtn.textContent;
+        copyBtn.textContent = "Copied!";
+        copyBtn.disabled = true;
+        setTimeout(function () { copyBtn.textContent = t; copyBtn.disabled = false; }, 1400);
+      } catch (e) {
+        // Fallback for older browsers
+        var range = document.createRange();
+        range.selectNodeContents(urlBox);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand("copy");
+      }
+    });
+  })();
+</script>
+</body>
+</html>`;
+}
+
 function start({ alwaysAllowed = [] } = {}) {
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
@@ -255,6 +388,14 @@ function start({ alwaysAllowed = [] } = {}) {
         return;
       }
       const parsed = new URL(req.url, "http://127.0.0.1");
+      if (parsed.pathname === INSTALL_PATH) {
+        res.writeHead(200, {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+        });
+        res.end(renderInstallPage());
+        return;
+      }
       if (parsed.pathname !== PATH) {
         res.writeHead(404, { "Content-Type": "text/plain" }).end("not found");
         return;
@@ -277,7 +418,12 @@ function start({ alwaysAllowed = [] } = {}) {
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address();
       const port = typeof addr === "object" && addr ? addr.port : 0;
-      resolve({ port, url: `http://127.0.0.1:${port}${PATH}`, server });
+      resolve({
+        port,
+        url: `http://127.0.0.1:${port}${PATH}`,
+        installUrl: `http://127.0.0.1:${port}${INSTALL_PATH}`,
+        server,
+      });
     });
   });
 }

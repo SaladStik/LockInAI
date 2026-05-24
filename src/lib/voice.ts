@@ -3,8 +3,8 @@
  * No API key, no network. Soft, calm tone for LOCK//IN AI.
  */
 
-const STORAGE_KEY_VOICE = "lockin.voiceURI";
-const STORAGE_KEY_MUTED = "lockin.voiceMuted";
+const STORAGE_KEY_VOICE = "voiceURI";
+const STORAGE_KEY_MUTED = "voiceMuted";
 
 /** Persisted preset — resolved to the best installed en-GB female voice. */
 export const BRITISH_LADY_PRESET = "lockin:british-lady";
@@ -18,14 +18,18 @@ function isBrowser() {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
-// Restore persisted preferences on first import in the browser.
+function prefsApi() {
+  if (typeof window === "undefined") return null;
+  return window.electronAPI?.prefs ?? null;
+}
+
+// Restore persisted preferences on first import. The preload pre-fetches all
+// prefs from SQLite synchronously so these reads return immediately.
 if (isBrowser()) {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY_VOICE);
-    selectedVoiceURI = stored ?? BRITISH_LADY_PRESET;
-    muted = window.localStorage.getItem(STORAGE_KEY_MUTED) === "1";
-  } catch {
-    /* localStorage may be unavailable */
+  const api = prefsApi();
+  if (api) {
+    selectedVoiceURI = api.get(STORAGE_KEY_VOICE) ?? BRITISH_LADY_PRESET;
+    muted = api.get(STORAGE_KEY_MUTED) === "1";
   }
 }
 
@@ -127,13 +131,7 @@ export function getSelectedVoiceLabel(): string {
 export function setSelectedVoice(voiceURI: string | null) {
   selectedVoiceURI = voiceURI ?? BRITISH_LADY_PRESET;
   cachedVoice = null;
-  if (isBrowser()) {
-    try {
-      window.localStorage.setItem(STORAGE_KEY_VOICE, selectedVoiceURI);
-    } catch {
-      /* ignore */
-    }
-  }
+  prefsApi()?.set(STORAGE_KEY_VOICE, selectedVoiceURI);
   voiceChangeListeners.forEach((cb) => cb());
 }
 
@@ -152,14 +150,8 @@ export function onVoicesChanged(cb: () => void): () => void {
 
 export function setVoiceMuted(value: boolean) {
   muted = value;
-  if (isBrowser()) {
-    if (value) window.speechSynthesis.cancel();
-    try {
-      window.localStorage.setItem(STORAGE_KEY_MUTED, value ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }
+  if (isBrowser() && value) window.speechSynthesis.cancel();
+  prefsApi()?.set(STORAGE_KEY_MUTED, value ? "1" : "0");
 }
 export function isVoiceMuted() {
   return muted;
