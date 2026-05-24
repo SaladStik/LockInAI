@@ -69,12 +69,6 @@ export function LockInPopup() {
             onClick={() => window.electronAPI?.windowMinimize()}
             className="h-3 w-3 rounded-full bg-warning/80 transition hover:bg-warning"
           />
-          <button
-            type="button"
-            aria-label="Maximize window"
-            onClick={() => window.electronAPI?.windowMaximize()}
-            className="h-3 w-3 rounded-full bg-primary/80 transition hover:bg-primary"
-          />
         </div>
         <div className="pointer-events-none font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground select-none">
           LOCK<span className="text-primary">//</span>IN · AI

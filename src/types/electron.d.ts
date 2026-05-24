@@ -55,6 +55,7 @@ export type PermissionsStatus = {
 declare global {
   interface Window {
     electronAPI?: {
+      platform?: NodeJS.Platform;
       windowClose: () => void;
       windowMinimize: () => void;
       windowMaximize: () => void;
