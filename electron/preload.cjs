@@ -36,4 +36,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     add: (host) => ipcRenderer.invoke("custom-sites:add", host),
     remove: (id) => ipcRenderer.invoke("custom-sites:remove", id),
   },
+  garden: {
+    list: () => ipcRenderer.invoke("garden:list"),
+    add: (plant) => ipcRenderer.invoke("garden:add", plant),
+  },
 });

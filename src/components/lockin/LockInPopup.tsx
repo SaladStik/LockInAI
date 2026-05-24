@@ -23,6 +23,7 @@ import { SettingsScreen } from "./SettingsScreen";
 import { useActiveApp } from "@/hooks/useActiveApp";
 import { useCustomApps } from "@/hooks/useCustomApps";
 import { useCustomSites } from "@/hooks/useCustomSites";
+import { useGarden } from "@/hooks/useGarden";
 import {
   buildAchievements,
   streakSkin,
@@ -30,6 +31,7 @@ import {
   type Achievement,
 } from "./achievements";
 import { isAllowedFocusApp, ALWAYS_ALLOWED_HOSTS, hostnameOf } from "@/lib/apps";
+import { createPlantId, resolvePlantName, type GardenPlant } from "@/lib/garden";
 import { speak, setVoiceMuted, isVoiceMuted } from "@/lib/voice";
 
 type Screen =
@@ -56,28 +58,11 @@ const ALL_SITES = [
   "youtube.com",
 ];
 
-type PlantStatus = "alive" | "dead";
-interface GardenPlant {
-  id: string;
-  name: string;
-  stage: number;
-  status: PlantStatus;
-  days: number;
-  subject: string;
-}
-
-const INITIAL_GARDEN: GardenPlant[] = [
-  { id: "p1", name: "Aurora", stage: 4, status: "alive", days: 23, subject: "Coding" },
-  { id: "p2", name: "Sprig", stage: 3, status: "alive", days: 14, subject: "Math" },
-  { id: "p3", name: "Ember", stage: 2, status: "alive", days: 7, subject: "Reading" },
-  { id: "p4", name: "Mossy", stage: 0, status: "dead", days: 2, subject: "Writing" },
-  { id: "p5", name: "Vine", stage: 1, status: "dead", days: 4, subject: "Exam Prep" },
-  { id: "p6", name: "Lumen", stage: 2, status: "dead", days: 9, subject: "Coding" },
-];
-
 export function LockInPopup() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [subject, setSubject] = useState<string>("Coding");
+  const [plantName, setPlantName] = useState<string>("");
+  const [activePlantName, setActivePlantName] = useState<string>("");
   const [minutes, setMinutes] = useState<number>(25);
   const [apps, setApps] = useState<string[]>(["Chrome", "VSCode", "Notion"]);
   const [sites, setSites] = useState<string[]>(["chatgpt.com", "github.com"]);
@@ -88,7 +73,7 @@ export function LockInPopup() {
   const [breach, setBreach] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
   const [emergencyExit, setEmergencyExit] = useState<boolean>(false);
-  const [garden, setGarden] = useState<GardenPlant[]>(INITIAL_GARDEN);
+  const { plants: garden, addPlant } = useGarden();
   const [totalSessions, setTotalSessions] = useState<number>(12);
   const [longestSessionMin, setLongestSessionMin] = useState<number>(45);
   const [voiceOn, setVoiceOn] = useState<boolean>(!isVoiceMuted());
@@ -153,17 +138,14 @@ export function LockInPopup() {
       setLongestSessionMin((m) => Math.max(m, minutes));
       setStage((s) => {
         const next = Math.min(4, s + 1);
-        setGarden((g) => [
-          {
-            id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            name: randomPlantName(),
-            stage: next,
-            status: "alive",
-            days: 1,
-            subject,
-          },
-          ...g,
-        ]);
+        void addPlant({
+          id: createPlantId(),
+          name: activePlantName,
+          stage: next,
+          status: "alive",
+          days: 1,
+          subject,
+        });
         return next;
       });
       speak("Session complete. Your plant bloomed.");
@@ -171,7 +153,7 @@ export function LockInPopup() {
     }
     const t = window.setInterval(() => setSecondsLeft((s) => s - 1), 1000);
     return () => window.clearInterval(t);
-  }, [screen, secondsLeft]);
+  }, [screen, secondsLeft, activePlantName, minutes, subject, addPlant]);
 
   // Focus protection: OS-level app detection in Electron (Windows/macOS/Linux).
   useEffect(() => {
@@ -240,6 +222,9 @@ export function LockInPopup() {
   }
 
   function startSession() {
+    if (!activePlantName) {
+      setActivePlantName(resolvePlantName(plantName, garden.map((p) => p.name)));
+    }
     setSecondsLeft(minutes * 60);
     setEmergencyExit(false);
     setBreachCount(0);
@@ -259,17 +244,14 @@ export function LockInPopup() {
   function emergencyExitNow() {
     setEmergencyExit(true);
     setTotalSessions((n) => n + 1);
-    setGarden((g) => [
-      {
-        id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: randomPlantName(),
-        stage: Math.max(0, stage - 1),
-        status: "dead",
-        days: 1,
-        subject,
-      },
-      ...g,
-    ]);
+    void addPlant({
+      id: createPlantId(),
+      name: activePlantName,
+      stage: Math.max(0, stage - 1),
+      status: "dead",
+      days: 1,
+      subject,
+    });
     setScreen("complete");
     speak("Streak broken. Your Lockie is disappointed.");
   }
@@ -398,7 +380,10 @@ export function LockInPopup() {
           >
             {screen === "welcome" && (
               <WelcomeScreen
-                onNext={() => setScreen("subject")}
+                onNext={() => {
+                  setPlantName("");
+                  setScreen("subject");
+                }}
                 skin={skin}
                 skinLabel={skinLabel}
                 streak={streak}
@@ -408,6 +393,8 @@ export function LockInPopup() {
               <SubjectScreen
                 subject={subject}
                 setSubject={setSubject}
+                plantName={plantName}
+                setPlantName={setPlantName}
                 onNext={() => setScreen("time")}
               />
             )}
@@ -437,12 +424,17 @@ export function LockInPopup() {
                 detectedHost={hostnameOf(activeApp?.url)}
                 onAddCustom={addCustomSite}
                 onRemoveCustom={removeCustomSite}
-                onNext={() => setScreen("confirm")}
+                onNext={() => {
+                  setActivePlantName(resolvePlantName(plantName, garden.map((p) => p.name)));
+                  setScreen("confirm");
+                }}
               />
             )}
             {screen === "confirm" && (
               <ConfirmScreen
                 subject={subject}
+                plantName={plantName}
+                sessionPlantName={activePlantName}
                 minutes={minutes}
                 apps={apps}
                 onLock={startSession}
@@ -454,6 +446,7 @@ export function LockInPopup() {
                 ss={ss}
                 progress={progress}
                 subject={subject}
+                plantName={activePlantName}
                 apps={apps}
                 sites={sites}
                 streak={streak}
@@ -475,6 +468,8 @@ export function LockInPopup() {
                 broken={emergencyExit}
                 onAgain={() => {
                   setEmergencyExit(false);
+                  setPlantName("");
+                  setActivePlantName("");
                   setScreen("subject");
                 }}
                 onGarden={() => setScreen("garden")}
@@ -486,20 +481,17 @@ export function LockInPopup() {
                 plants={garden}
                 onBack={() => setScreen("welcome")}
                 onAdd={(status) =>
-                  setGarden((g) => [
-                    {
-                      id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                      name: randomPlantName(),
-                      stage:
-                        status === "dead"
-                          ? Math.floor(Math.random() * 3) // 0..2 withered
-                          : 1 + Math.floor(Math.random() * 4), // 1..4 grown
-                      status,
-                      days: 1 + Math.floor(Math.random() * 20),
-                      subject,
-                    },
-                    ...g,
-                  ])
+                  void addPlant({
+                    id: createPlantId(),
+                    name: resolvePlantName("", garden.map((p) => p.name)),
+                    stage:
+                      status === "dead"
+                        ? Math.floor(Math.random() * 3) // 0..2 withered
+                        : 1 + Math.floor(Math.random() * 4), // 1..4 grown
+                    status,
+                    days: 1 + Math.floor(Math.random() * 20),
+                    subject,
+                  })
                 }
               />
             )}
@@ -605,10 +597,14 @@ function WelcomeScreen({
 function SubjectScreen({
   subject,
   setSubject,
+  plantName,
+  setPlantName,
   onNext,
 }: {
   subject: string;
   setSubject: (s: string) => void;
+  plantName: string;
+  setPlantName: (s: string) => void;
   onNext: () => void;
 }) {
   return (
@@ -622,6 +618,24 @@ function SubjectScreen({
         <Chip onClick={() => {}}>
           <Plus size={12} /> Custom
         </Chip>
+      </div>
+      <div className="mt-4">
+        <label
+          htmlFor="plant-name"
+          className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground"
+        >
+          Name your plant{" "}
+          <span className="normal-case tracking-normal text-muted-foreground/70">(optional)</span>
+        </label>
+        <input
+          id="plant-name"
+          type="text"
+          value={plantName}
+          onChange={(e) => setPlantName(e.target.value)}
+          placeholder="Leave blank and we'll pick one"
+          maxLength={32}
+          className="mt-1.5 w-full rounded-xl border border-border/50 bg-background/40 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary-glow/50 focus:outline-none"
+        />
       </div>
       <PrimaryButton onClick={onNext} className="mt-auto">
         Continue <ChevronRight size={16} />
@@ -1062,11 +1076,15 @@ function CustomChip({
 
 function ConfirmScreen({
   subject,
+  plantName,
+  sessionPlantName,
   minutes,
   apps,
   onLock,
 }: {
   subject: string;
+  plantName: string;
+  sessionPlantName: string;
   minutes: number;
   apps: string[];
   onLock: () => void;
@@ -1078,6 +1096,15 @@ function ConfirmScreen({
         style={{ boxShadow: "var(--shadow-glow-accent)" }}
       >
         <Row label="Subject" value={subject} />
+        <div className="my-3 h-px bg-border" />
+        <Row
+          label="Plant"
+          value={
+            plantName.trim()
+              ? sessionPlantName
+              : `${sessionPlantName} · picked for you`
+          }
+        />
         <div className="my-3 h-px bg-border" />
         <Row label="Duration" value={`${minutes} min`} />
         <div className="my-3 h-px bg-border" />
@@ -1132,6 +1159,7 @@ function FocusScreen({
   ss,
   progress,
   subject,
+  plantName,
   apps,
   sites,
   streak,
@@ -1149,6 +1177,7 @@ function FocusScreen({
   ss: string;
   progress: number;
   subject: string;
+  plantName: string;
   apps: string[];
   sites: string[];
   streak: number;
@@ -1180,7 +1209,8 @@ function FocusScreen({
             <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-primary-glow">
               ● Locked in
             </div>
-            <div className="text-[11px] text-muted-foreground">{subject}</div>
+            <div className="text-[11px] font-medium text-foreground">{plantName}</div>
+            <div className="text-[10px] text-muted-foreground">{subject}</div>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -1352,14 +1382,6 @@ function CompleteScreen({
 }
 
 /* ============ GARDEN ============ */
-
-const PLANT_NAMES = [
-  "Aurora", "Sprig", "Ember", "Mossy", "Vine", "Lumen", "Fern", "Sage",
-  "Iris", "Juno", "Rhea", "Zephyr", "Orin", "Sol", "Nova", "Bloom",
-];
-function randomPlantName() {
-  return PLANT_NAMES[Math.floor(Math.random() * PLANT_NAMES.length)];
-}
 
 /** Stable 0..1 pseudo-random from a string seed — organic but repeatable layout. */
 function hash01(seed: string): number {

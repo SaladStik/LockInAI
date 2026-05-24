@@ -28,6 +28,16 @@ export type CustomSite = {
   created_at?: number;
 };
 
+export type GardenPlant = {
+  id: string;
+  name: string;
+  stage: number;
+  status: "alive" | "dead";
+  days: number;
+  subject: string;
+  created_at?: number;
+};
+
 export type PermissionsStatus = {
   accessibility: "granted" | "denied" | "not-determined" | "restricted" | "unknown";
   screenRecording: "granted" | "denied" | "not-determined" | "restricted" | "unknown";
@@ -70,6 +80,10 @@ declare global {
         list: () => Promise<CustomSite[]>;
         add: (host: string) => Promise<CustomSite | null>;
         remove: (id: number) => Promise<boolean>;
+      };
+      garden: {
+        list: () => Promise<GardenPlant[]>;
+        add: (plant: Omit<GardenPlant, "created_at">) => Promise<GardenPlant>;
       };
     };
   }

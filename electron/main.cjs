@@ -549,6 +549,9 @@ ipcMain.handle("custom-sites:list", () => db.listCustomSites());
 ipcMain.handle("custom-sites:add", (_e, host) => db.addCustomSite(host));
 ipcMain.handle("custom-sites:remove", (_e, id) => db.removeCustomSite(id));
 
+ipcMain.handle("garden:list", () => db.listGardenPlants());
+ipcMain.handle("garden:add", (_e, plant) => db.addGardenPlant(plant));
+
 ipcMain.handle("permissions:status", () => getPermissionsStatus());
 ipcMain.handle("permissions:request", () => requestMacPermissions({ prompt: true }));
 
