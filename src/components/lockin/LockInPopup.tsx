@@ -1408,6 +1408,7 @@ function GardenScreen({
   const scrollRef = useRef<HTMLDivElement>(null);
   const lockieRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef(0); // desired scrollLeft; eased toward each frame
+  const lastSetXRef = useRef(0); // throttles scrollX state updates
   const [dims, setDims] = useState({ w: 352, h: 430 });
   const [scrollX, setScrollX] = useState(0);
 
@@ -1468,10 +1469,15 @@ function GardenScreen({
     return () => cancelAnimationFrame(raf);
   }, [dims.h]);
 
-  // Track scroll for mood + hints. Lockie's position is driven per-frame by the
-  // rAF loop below (reading live scrollLeft) so he glides smoothly along the curve.
+  // Track scroll for mood + hints only — throttled to ~every 24px so we don't
+  // re-render the React tree 60×/sec. Lockie's position is driven per-frame by
+  // the rAF loop (live scrollLeft), independent of this state.
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    setScrollX(e.currentTarget.scrollLeft);
+    const sl = e.currentTarget.scrollLeft;
+    if (Math.abs(sl - lastSetXRef.current) > 24) {
+      lastSetXRef.current = sl;
+      setScrollX(sl);
+    }
   };
 
   const STEP = 62;
@@ -1510,6 +1516,70 @@ function GardenScreen({
     return d.trim();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentW, dims.h]);
+
+  // Trail + foliage + plants depend only on the data and viewport size — NOT the
+  // scroll position. Memoizing keeps scrolling from re-rendering the N animated
+  // plant SVGs every frame (the cause of scroll lag).
+  const forest = useMemo(
+    () => (
+      <div className="relative h-full" style={{ width: contentW }}>
+        <svg className="absolute inset-0" width={contentW} height={dims.h}>
+          <defs>
+            <linearGradient id="garden-trail" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="oklch(0.6 0.14 200)" />
+              <stop offset="100%" stopColor="oklch(0.62 0.16 158)" />
+            </linearGradient>
+          </defs>
+          {Array.from({ length: Math.ceil(contentW / 70) }).map((_, k) => {
+            const fx = k * 70 + hash01(`fx${k}`) * 64;
+            const fy = pathY(fx) + (hash01(`fy${k}`) - 0.5) * dims.h * 0.78;
+            const fr = 9 + hash01(`fr${k}`) * 20;
+            return (
+              <circle
+                key={k}
+                cx={fx}
+                cy={fy}
+                r={fr}
+                fill="color-mix(in oklab, var(--primary) 7%, transparent)"
+              />
+            );
+          })}
+          <path
+            d={pathD}
+            fill="none"
+            stroke="color-mix(in oklab, var(--primary) 15%, transparent)"
+            strokeWidth="26"
+            strokeLinecap="round"
+          />
+          <path
+            d={pathD}
+            fill="none"
+            stroke="url(#garden-trail)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="2 11"
+            opacity="0.9"
+            style={{ filter: "drop-shadow(0 0 5px oklch(0.7 0.16 200))" }}
+          />
+        </svg>
+        {layout.map((it) => {
+          const y = pathY(it.x) + (it.above ? -1 : 1) * (dims.h * it.offFactor + 16);
+          return (
+            <GardenSprite
+              key={it.plant.id}
+              plant={it.plant}
+              x={it.x}
+              y={y}
+              size={it.size}
+              lean={it.lean}
+            />
+          );
+        })}
+      </div>
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contentW, dims.h, pathD, layout],
+  );
 
   const canScroll = contentW > dims.w + 4;
 
@@ -1604,65 +1674,7 @@ function GardenScreen({
           className="absolute inset-0 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: "none" }}
         >
-          <div className="relative h-full" style={{ width: contentW }}>
-            <svg className="absolute inset-0" width={contentW} height={dims.h}>
-              <defs>
-                <linearGradient id="garden-trail" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="oklch(0.6 0.14 200)" />
-                  <stop offset="100%" stopColor="oklch(0.62 0.16 158)" />
-                </linearGradient>
-              </defs>
-              {/* distant foliage — faint scattered blobs for depth */}
-              {Array.from({ length: Math.ceil(contentW / 70) }).map((_, k) => {
-                const fx = k * 70 + hash01(`fx${k}`) * 64;
-                const fy = pathY(fx) + (hash01(`fy${k}`) - 0.5) * dims.h * 0.78;
-                const fr = 9 + hash01(`fr${k}`) * 20;
-                return (
-                  <circle
-                    key={k}
-                    cx={fx}
-                    cy={fy}
-                    r={fr}
-                    fill="color-mix(in oklab, var(--primary) 7%, transparent)"
-                  />
-                );
-              })}
-              {/* soft wide dirt trail */}
-              <path
-                d={pathD}
-                fill="none"
-                stroke="color-mix(in oklab, var(--primary) 15%, transparent)"
-                strokeWidth="26"
-                strokeLinecap="round"
-              />
-              {/* glowing dashed centerline */}
-              <path
-                d={pathD}
-                fill="none"
-                stroke="url(#garden-trail)"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeDasharray="2 11"
-                opacity="0.9"
-                style={{ filter: "drop-shadow(0 0 5px oklch(0.7 0.16 200))" }}
-              />
-            </svg>
-
-            {/* plants scattered organically along the path like a forest */}
-            {layout.map((it) => {
-              const y = pathY(it.x) + (it.above ? -1 : 1) * (dims.h * it.offFactor + 16);
-              return (
-                <GardenSprite
-                  key={it.plant.id}
-                  plant={it.plant}
-                  x={it.x}
-                  y={y}
-                  size={it.size}
-                  lean={it.lean}
-                />
-              );
-            })}
-          </div>
+          {forest}
         </div>
 
         {/* Lockie — stays centered while the world scrolls, floating along the curve */}
