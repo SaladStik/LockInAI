@@ -66,6 +66,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   extension: {
     status: () => ipcRenderer.invoke("extension:status"),
+    getPath: () => ipcRenderer.invoke("extension:get-path"),
+    revealFolder: () => ipcRenderer.invoke("extension:reveal-folder"),
+    copyPath: () => ipcRenderer.invoke("extension:copy-path"),
     openInstall: () => ipcRenderer.invoke("extension:open-install"),
   },
   prefs: {

@@ -108,7 +108,18 @@ declare global {
       };
       extension: {
         status: () => Promise<{ connected: boolean }>;
-        openInstall: () => Promise<{ extensionPath: string | null }>;
+        getPath: () => Promise<{
+          path: string | null;
+          connected: boolean;
+          installUrl: string | null;
+        }>;
+        revealFolder: () => Promise<{ path: string | null }>;
+        copyPath: () => Promise<{ path: string | null; copied: boolean }>;
+        openInstall: () => Promise<{
+          path: string | null;
+          connected: boolean;
+          installUrl: string | null;
+        }>;
       };
       prefs: {
         get: (key: string) => string | null;

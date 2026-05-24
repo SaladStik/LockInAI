@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronRight, Leaf, Lock, Sparkles, Shield, Check, X, Puzzle } from "lucide-react";
+import { ChevronRight, Leaf, Lock, Sparkles, Shield, Check, X } from "lucide-react";
 import { Lockie } from "../Lockie";
 import { Plant } from "@/components/lockin/Plant";
 import { PrimaryButton } from "../primitives";
+import { ExtensionInstallPanel } from "@/components/lockin/ExtensionInstallPanel";
 import { markOnboarded } from "@/lib/onboarding";
 import type { PermissionsStatus } from "@/types/electron";
 
@@ -64,7 +65,15 @@ export function OnboardingScreen({
           <PermissionsStep key="permissions" onNext={next} onSkip={next} />
         )}
         {step === "extension" && (
-          <ExtensionStep key="extension" onNext={next} />
+          <motion.div
+            key="extension"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="h-full"
+          >
+            <ExtensionInstallPanel onNext={next} />
+          </motion.div>
         )}
         {step === "gemini" && (
           <GeminiStep
@@ -512,130 +521,6 @@ function PermissionRow({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Step 5: Browser extension — open default browser + reveal extension folder.
-// ---------------------------------------------------------------------------
-function ExtensionStep({ onNext }: { onNext: () => void }) {
-  const [connected, setConnected] = useState(false);
-  const [opening, setOpening] = useState(false);
-
-  useEffect(() => {
-    const api = window.electronAPI;
-    if (!api) return;
-    let stopped = false;
-    const probe = api;
-    async function poll() {
-      const s = await probe.extension.status();
-      if (!stopped) setConnected(s.connected);
-    }
-    poll();
-    const t = window.setInterval(poll, 1500);
-    return () => {
-      stopped = true;
-      window.clearInterval(t);
-    };
-  }, []);
-
-  async function openInstaller() {
-    setOpening(true);
-    try {
-      await window.electronAPI?.extension.openInstall();
-    } finally {
-      setOpening(false);
-    }
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      className="flex h-full flex-col"
-    >
-      <div className="flex items-end justify-center gap-3 pt-2">
-        <Lockie mood={connected ? "excited" : "curious"} size={64} />
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary/30 text-primary-glow">
-          <Puzzle size={22} />
-        </div>
-      </div>
-
-      <div className="mt-3 text-center">
-        <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary-glow">
-          browser extension
-        </p>
-        <h2 className="mt-2 text-lg font-semibold tracking-tight text-foreground">
-          Plug Lockie into your browser
-        </h2>
-        <p className="mt-1 px-2 text-[11px] leading-relaxed text-muted-foreground">
-          The companion extension lets Lockie see your active tab and steer
-          you back when you wander.
-        </p>
-      </div>
-
-      <div
-        className="glass mt-4 flex items-center justify-between rounded-xl px-3 py-2.5"
-        style={
-          connected
-            ? {
-                boxShadow: "0 0 18px -10px var(--primary-glow)",
-                borderColor: "var(--primary-glow)",
-              }
-            : undefined
-        }
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{
-              background: connected ? "var(--primary-glow)" : "var(--muted-foreground)",
-              boxShadow: connected ? "0 0 8px var(--primary-glow)" : undefined,
-            }}
-          />
-          <span className="text-[12px] font-medium text-foreground">
-            {connected ? "Extension connected" : "Waiting for extension…"}
-          </span>
-        </div>
-        {connected && (
-          <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-primary-glow">
-            ready
-          </span>
-        )}
-      </div>
-
-      <ol className="mt-3 space-y-1.5 text-[11px] leading-relaxed text-muted-foreground">
-        <li>
-          <span className="text-foreground">1.</span> Open <span className="font-mono text-foreground">chrome://extensions</span> in your browser.
-        </li>
-        <li>
-          <span className="text-foreground">2.</span> Toggle <span className="text-foreground">Developer mode</span> on (top-right).
-        </li>
-        <li>
-          <span className="text-foreground">3.</span> Click <span className="text-foreground">Load unpacked</span> and pick the highlighted folder.
-        </li>
-      </ol>
-
-      <div className="mt-auto flex flex-col gap-2">
-        {connected ? (
-          <PrimaryButton onClick={onNext}>
-            Let's go <ChevronRight size={16} />
-          </PrimaryButton>
-        ) : (
-          <PrimaryButton onClick={openInstaller} disabled={opening}>
-            {opening ? "Opening…" : "Open browser & reveal folder"}{" "}
-            <ChevronRight size={16} />
-          </PrimaryButton>
-        )}
-        <p className="text-center font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
-          {connected ? "extension ready" : "waiting for extension…"}
-        </p>
-      </div>
-    </motion.div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Egg SVG — simple ovoid with a soft gradient + optional crack overlay.
-// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Step 6: Gemini — last setup beat. Lockie holds an hourglass while asking
 // whether to hide Google's AI Overview during focus sessions.

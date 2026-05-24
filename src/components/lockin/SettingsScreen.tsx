@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, Play } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { ExtensionInstallPanel } from "@/components/lockin/ExtensionInstallPanel";
 import {
   BRITISH_LADY_PRESET,
   getSelectedVoiceURI,
@@ -138,6 +139,10 @@ export function SettingsScreen({
             onPreview={() => preview(v.voiceURI)}
           />
         ))}
+
+        <div className="mt-4 border-t border-border/40 pt-4">
+          <ExtensionInstallPanel compact />
+        </div>
 
         <div className="mt-4 border-t border-border/40 pt-4">
           <div className="text-[11px] font-medium text-foreground">Locked-in browser</div>
