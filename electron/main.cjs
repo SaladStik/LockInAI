@@ -16,6 +16,12 @@ const { isAllowedFocusApp, isSiteAllowed, isBrowserSnapshot, ALWAYS_ALLOWED_HOST
 const blockedServer = require("./blocked-server.cjs");
 const winTabs = require("./win-tabs.cjs");
 const { createFocusWindow } = require("./focus-window.cjs");
+const { createBridge } = require("./extension-bridge.cjs");
+
+// Companion browser extension bridge. When connected it gives us real tab URLs
+// (which get-windows can't on Windows) and a reliable way to switch/navigate
+// tabs — the same capability AppleScript gives us on macOS.
+const extBridge = createBridge();
 
 const isDev = process.env.NODE_ENV === "development";
 const devUrl = process.env.NEXT_DEV_SERVER_URL;
@@ -305,6 +311,15 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
     lastAllowedTitle = null;
     sessionStartGraceKey = null;
   }
+
+  // Tell every connected browser whether to redirect new tabs to the "nuh uh
+  // uh" page, and where it lives.
+  extBridge.broadcastSession({
+    active: focusSession.active,
+    blockedUrl: focusSession.active
+      ? blockedPageUrlFor(focusSession.allowedSites)
+      : null,
+  });
 });
 
 function startActiveAppPolling(win) {
@@ -324,6 +339,17 @@ function startActiveAppPolling(win) {
       const info = await activeWindow();
       if (info?.owner?.name) {
         const snapshot = snapshotFromInfo(info);
+
+        // Windows: get-windows can't read tab URLs. If the companion extension
+        // is connected and the foreground app is a browser, borrow the real
+        // active-tab URL so site allow/deny works the same as on macOS.
+        if (!snapshot.url && isBrowserSnapshot(snapshot) && extBridge.isConnected()) {
+          const extTab = extBridge.getActiveTab();
+          if (extTab?.url) {
+            snapshot.url = extTab.url;
+            snapshot.extTabId = extTab.tabId;
+          }
+        }
 
         const ownApp = isOurApp(info);
         const allowed =
@@ -354,7 +380,16 @@ function startActiveAppPolling(win) {
           const inBrowser = isBrowserSnapshot(snapshot);
           let restored = null;
           if (inBrowser) {
-            if (lastAllowedUrl || lastAllowedTitle) {
+            // Companion extension is the reliable path (real tab ids, no
+            // keystrokes/UIA): send the offending tab in the focused browser to
+            // the "nuh uh uh" page.
+            if (extBridge.isConnected() && typeof snapshot.extTabId === "number") {
+              const blocked = blockedPageUrlFor(focusSession.allowedSites);
+              if (await extBridge.navigateTab(snapshot.extTabId, blocked)) {
+                restored = { windowId: null, refocused: blocked };
+              }
+            }
+            if (!restored && (lastAllowedUrl || lastAllowedTitle)) {
               if (process.platform === "darwin") {
                 const urls = await getBrowserTabUrls(snapshot.app);
                 if (urls && urls.length) {
@@ -625,6 +660,12 @@ app.whenReady().then(async () => {
     console.log("[blocked-server] listening at", url);
   } catch (e) {
     console.error("[blocked-server] failed to start:", e?.message ?? e);
+  }
+
+  try {
+    await extBridge.start();
+  } catch (e) {
+    console.error("[ext-bridge] failed to start:", e?.message ?? e);
   }
 
   createWindow();

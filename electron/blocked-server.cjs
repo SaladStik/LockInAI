@@ -124,6 +124,48 @@ function renderPage({ allowedSites, alwaysAllowed }) {
       transform: translateY(-1px);
     }
     .empty { color: oklch(0.6 0.04 250); font-size: 12px; }
+    .search {
+      display: flex;
+      gap: 8px;
+      margin: 4px auto 22px;
+      max-width: 420px;
+    }
+    .search input {
+      flex: 1;
+      padding: 13px 16px;
+      border-radius: 999px;
+      border: 1px solid oklch(1 0 0 / 12%);
+      background: oklch(0.12 0.02 250 / 0.8);
+      color: oklch(0.95 0.02 250);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .search input::placeholder { color: oklch(0.55 0.03 250); }
+    .search input:focus {
+      border-color: oklch(0.7 0.18 220 / 0.7);
+      box-shadow: 0 0 0 3px oklch(0.6 0.16 220 / 0.18);
+    }
+    .search button {
+      padding: 13px 20px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: oklch(0.12 0.03 250);
+      background: linear-gradient(135deg, oklch(0.85 0.16 215), oklch(0.72 0.16 220));
+      transition: transform 0.12s ease, filter 0.18s ease;
+    }
+    .search button:hover { filter: brightness(1.08); }
+    .search button:active { transform: scale(0.97); }
+    .search-hint {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: oklch(0.5 0.04 250);
+      margin: -14px 0 22px;
+    }
     .footer {
       font-family: ui-monospace, "SF Mono", monospace;
       font-size: 10px;
@@ -169,6 +211,12 @@ function renderPage({ allowedSites, alwaysAllowed }) {
     <p class="label">access denied</p>
     <h1>nuh uh uh</h1>
     <p class="sub">You're locked in. Stick to your allowed sites.</p>
+
+    <form id="lockin-search" class="search" action="https://www.google.com/search" method="get" role="search">
+      <input type="text" name="q" placeholder="Search the web…" autocomplete="off" autofocus aria-label="Search" />
+      <button type="submit">Search</button>
+    </form>
+    <p class="search-hint">searches your default engine · google fallback</p>
 
     <p class="label">allowed sites</p>
     <div class="sites">${list}</div>
