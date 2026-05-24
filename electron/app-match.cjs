@@ -8,28 +8,60 @@
  * }} AppSnapshot
  */
 
+const BROWSER_PATTERNS = [
+  /chrome/i,
+  /google chrome/i,
+  /microsoft edge/i,
+  /msedge/i,
+  /firefox/i,
+  /brave/i,
+  /vivaldi/i,
+  /opera/i,
+  /arc/i,
+  /safari/i,
+];
+
+const BROWSER_EXE_PATTERNS = [
+  /\\chrome\.exe$/i,
+  /\\msedge\.exe$/i,
+  /\\firefox\.exe$/i,
+  /\\brave\.exe$/i,
+  /\\vivaldi\.exe$/i,
+  /\\opera\.exe$/i,
+  /\\arc\.exe$/i,
+];
+
 const APP_MATCHERS = {
-  Chrome: [/chrome/i, /google chrome/i],
-  VSCode: [/visual studio code/i, /^code$/i, /cursor/i, /vscode/i],
+  Browser: BROWSER_PATTERNS,
+  // Legacy presets saved before the Browser rename.
+  Chrome: BROWSER_PATTERNS,
+  VSCode: [/visual studio code/i, /^code$/i, /vscode/i],
+  Cursor: [/^cursor$/i, /\bcursor\b/i],
   Notion: [/notion/i],
   YouTube: [/youtube/i],
   Netflix: [/netflix/i],
   "PDF Viewer": [/acrobat/i, /foxit/i, /sumatra/i, /pdf/i, /reader/i],
   Figma: [/figma/i],
   Spotify: [/spotify/i],
+  Discord: [/discord/i],
+  Zoom: [/zoom workplace/i, /^zoom$/i, /\bzoom\b/i],
 };
 
 const EXE_MATCHERS = {
-  Chrome: [/\\chrome\.exe$/i, /\\msedge\.exe$/i],
-  VSCode: [/\\code\.exe$/i, /\\cursor\.exe$/i],
+  Browser: BROWSER_EXE_PATTERNS,
+  Chrome: BROWSER_EXE_PATTERNS,
+  VSCode: [/\\code\.exe$/i],
+  Cursor: [/\\cursor\.exe$/i],
   Notion: [/\\notion\.exe$/i],
   Netflix: [/\\netflix\.exe$/i],
   Figma: [/\\figma\.exe$/i],
   Spotify: [/\\spotify\.exe$/i],
+  Discord: [/\\discord(?:canary|ptb)?\.exe$/i],
+  Zoom: [/\\zoom\.exe$/i],
 };
 
 // Apps that are really websites — allowing the app should permit its site(s)
-// when accessed in a browser. (The "Chrome" app is the browser itself and
+// when accessed in a browser. (The "Browser" app is the browser itself and
 // grants no site; browser usage is governed by allowed sites.)
 const APP_SITE_HOSTS = {
   YouTube: ["youtube.com", "youtu.be"],
@@ -102,15 +134,6 @@ const SYSTEM_EXE_PATTERNS = [
 const ALWAYS_ALLOWED_HOSTS = ["google.com", "wikipedia.org"];
 
 /** Browsers we can read/navigate via the address bar on Windows. */
-const BROWSER_PATTERNS = [
-  /chrome/i,
-  /msedge|microsoft edge/i,
-  /brave/i,
-  /vivaldi/i,
-  /opera/i,
-  /firefox/i,
-];
-
 function isSupportedBrowser(appName, exePath = "") {
   const hay = `${appName ?? ""} ${exePath ?? ""}`.toLowerCase();
   return BROWSER_PATTERNS.some((re) => re.test(hay));
