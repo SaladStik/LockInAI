@@ -150,12 +150,14 @@ export function FocusScreen({
         >
           <AlertTriangle size={14} /> Emergency exit
         </button>
-        <button
-          onClick={onSkip}
-          className="font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground/60 transition hover:text-primary-glow"
-        >
-          dev · skip timer →
-        </button>
+        {process.env.NODE_ENV !== "production" && (
+          <button
+            onClick={onSkip}
+            className="font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground/60 transition hover:text-primary-glow"
+          >
+            dev · skip timer →
+          </button>
+        )}
       </div>
     </div>
   );
