@@ -10,6 +10,7 @@ function toGardenPlant(row: StoredGardenPlant): GardenPlant {
     status: row.status,
     days: row.days,
     subject: row.subject,
+    minutes: row.minutes ?? 25,
   };
 }
 
