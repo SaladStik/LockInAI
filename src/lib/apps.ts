@@ -147,6 +147,17 @@ export function hostnameOf(url: string | null | undefined): string | null {
   }
 }
 
+/** Normalize user-entered site text to a bare hostname (e.g. "https://www.netflix.com/foo" → "netflix.com"). */
+export function normalizeSiteHost(input: string | null | undefined): string | null {
+  let s = String(input ?? "").trim().toLowerCase();
+  if (!s) return null;
+  const fromUrl = hostnameOf(s.includes("://") ? s : `https://${s}`);
+  if (fromUrl) return fromUrl;
+  s = s.replace(/^https?:\/\//, "").replace(/^www\./, "");
+  s = s.split("/")[0]?.split("?")[0]?.split("#")[0] ?? "";
+  return s.includes(".") ? s : null;
+}
+
 export function isAllowedFocusApp(
   snapshot: ActiveAppSnapshot,
   allowedApps: string[],

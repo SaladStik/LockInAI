@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, X, ChevronRight } from "lucide-react";
 import { SetupShell, Chip, CustomChip, PrimaryButton } from "@/components/lockin/primitives";
 import { ALL_SITES } from "@/components/lockin/constants";
-import { ALWAYS_ALLOWED_HOSTS } from "@/lib/apps";
+import { ALWAYS_ALLOWED_HOSTS, normalizeSiteHost } from "@/lib/apps";
 import type { CustomSite } from "@/types/electron";
 
 export function SitesScreen({
@@ -23,6 +23,7 @@ export function SitesScreen({
   onNext: () => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [typedHost, setTypedHost] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,25 +31,33 @@ export function SitesScreen({
   const allKnownHosts = [...ALL_SITES.map((s) => s.toLowerCase()), ...customHosts];
   const defaults = ALL_SITES.filter((s) => !customHosts.includes(s.toLowerCase()));
 
-  const candidate = adding ? detectedHost : null;
+  const detectedCandidate = adding ? detectedHost : null;
+  const typedCandidate = adding ? normalizeSiteHost(typedHost) : null;
+  const candidate = typedCandidate ?? detectedCandidate;
   const candidateExists =
     candidate != null && allKnownHosts.includes(candidate.toLowerCase());
+  const typedInvalid = adding && typedHost.trim().length > 0 && !typedCandidate;
 
   const toggle = (s: string) =>
     setSites(sites.includes(s) ? sites.filter((x) => x !== s) : [...sites, s]);
 
   function openAddForm() {
     setError(null);
+    setTypedHost("");
     setAdding(true);
   }
 
   function cancelAdd() {
     setAdding(false);
+    setTypedHost("");
     setError(null);
   }
 
   async function commitAdd() {
-    if (!candidate) return;
+    if (!candidate) {
+      setError(typedInvalid ? "Enter a valid domain like netflix.com" : "Pick a site to add");
+      return;
+    }
     if (candidateExists) {
       setError(`"${candidate}" is already in your list`);
       return;
@@ -122,19 +131,20 @@ export function SitesScreen({
             </span>
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Open the website you want to add in any browser, then come back.
+            Open the website you want to add in any browser, then come back — or type the URL
+            below.
           </p>
 
           <div className="rounded-xl border border-border/40 bg-background/40 px-3 py-2">
-            {candidate ? (
+            {detectedCandidate ? (
               <>
                 <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
                   last detected
                 </div>
                 <div className="mt-0.5 truncate text-sm font-medium text-foreground">
-                  {candidate}
+                  {detectedCandidate}
                 </div>
-                {candidateExists && (
+                {!typedCandidate && candidateExists && (
                   <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-warning">
                     already in your list
                   </div>
@@ -146,6 +156,32 @@ export function SitesScreen({
               </div>
             )}
           </div>
+
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border/40" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
+              or type
+            </span>
+            <div className="h-px flex-1 bg-border/40" />
+          </div>
+
+          <input
+            type="text"
+            value={typedHost}
+            onChange={(e) => {
+              setTypedHost(e.target.value);
+              setError(null);
+            }}
+            placeholder="e.g. netflix.com or https://docs.google.com"
+            maxLength={128}
+            className="w-full rounded-xl border border-border/50 bg-background/40 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary-glow/50 focus:outline-none"
+          />
+          {typedInvalid && (
+            <p className="text-[10px] text-destructive">Enter a valid domain like netflix.com</p>
+          )}
+          {typedCandidate && candidateExists && (
+            <p className="text-[10px] text-warning">"{typedCandidate}" is already in your list</p>
+          )}
 
           {error && <p className="text-[10px] text-destructive">{error}</p>}
 
@@ -161,10 +197,10 @@ export function SitesScreen({
             <button
               type="button"
               onClick={commitAdd}
-              disabled={saving || !candidate || candidateExists}
+              disabled={saving || !candidate || candidateExists || typedInvalid}
               className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
             >
-              {saving ? "Saving…" : candidate ? `Add "${candidate}"` : "Waiting…"}
+              {saving ? "Saving…" : candidate ? `Add "${candidate}"` : "Add site"}
             </button>
           </div>
         </div>
