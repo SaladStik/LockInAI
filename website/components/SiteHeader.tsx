@@ -9,6 +9,7 @@ export function SiteHeader() {
       </a>
       <nav>
         <a href="/#features">Features</a>
+        <a href="/slides">Pitch</a>
         <a href="/screenshots">Screenshots</a>
         <a href="/install">macOS&nbsp;help</a>
         <a href="/#download">Download</a>
