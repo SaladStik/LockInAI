@@ -16,7 +16,17 @@ export function TimeScreen({
   const intensity = Math.min(1, minutes / 90);
 
   return (
-    <SetupShell step={2} title="How long will you focus?" plantStage={stage} excited={minutes >= 45}>
+    <SetupShell
+      step={2}
+      title="How long will you focus?"
+      plantStage={stage}
+      excited={minutes >= 45}
+      footer={
+        <PrimaryButton onClick={onNext}>
+          Continue <ChevronRight size={16} />
+        </PrimaryButton>
+      }
+    >
       <div className="relative flex flex-col items-center gap-4">
         <div className="flex items-baseline gap-2 text-glow">
           <span className="text-6xl font-semibold tabular-nums tracking-tight text-foreground">
@@ -31,9 +41,6 @@ export function TimeScreen({
           <span>120m</span>
         </div>
       </div>
-      <PrimaryButton onClick={onNext} className="mt-auto">
-        Continue <ChevronRight size={16} />
-      </PrimaryButton>
     </SetupShell>
   );
 }

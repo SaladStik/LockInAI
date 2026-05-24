@@ -7,12 +7,14 @@ export function SetupShell({
   plantStage,
   excited,
   children,
+  footer,
 }: {
   step: number;
   title: string;
   plantStage: number;
   excited?: boolean;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   const mood: LockieMood = excited ? "excited" : "curious";
   return (
@@ -40,9 +42,10 @@ export function SetupShell({
       <h2 className="shrink-0 text-center text-lg font-medium tracking-tight text-foreground">
         {title}
       </h2>
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60">
+      <div className="scroll-hidden flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-y-contain pb-1">
         {children}
       </div>
+      {footer ? <div className="shrink-0">{footer}</div> : null}
     </div>
   );
 }

@@ -45,6 +45,11 @@ export function SubjectScreen({
       title={creating ? "Create a preset" : "What are you locking into?"}
       plantStage={0}
       excited
+      footer={
+        <PrimaryButton onClick={onNext} disabled={!canContinue}>
+          Continue <ChevronRight size={16} />
+        </PrimaryButton>
+      }
     >
       {creating ? (
         <div className="flex flex-col gap-2">
@@ -131,9 +136,6 @@ export function SubjectScreen({
           “{trimmed}” is already taken — pick another name.
         </p>
       )}
-      <PrimaryButton onClick={onNext} disabled={!canContinue} className="mt-auto">
-        Continue <ChevronRight size={16} />
-      </PrimaryButton>
     </SetupShell>
   );
 }

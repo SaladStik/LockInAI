@@ -19,7 +19,34 @@ export function ConfirmScreen({
   onLock: () => void;
 }) {
   return (
-    <SetupShell step={5} title="Ready to lock in?" plantStage={3} excited>
+    <SetupShell
+      step={5}
+      title="Ready to lock in?"
+      plantStage={3}
+      excited
+      footer={
+        <button
+          onClick={onLock}
+          className="group relative flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl text-sm font-semibold uppercase tracking-[0.4em] text-primary-foreground transition-transform active:scale-[0.98]"
+          style={{
+            background: "var(--gradient-leaf)",
+            boxShadow: "0 0 34px -12px color-mix(in oklab, var(--primary) 72%, transparent)",
+          }}
+        >
+          <span
+            className="absolute inset-0 opacity-50"
+            style={{
+              background:
+                "linear-gradient(90deg, transparent, oklch(1 0 0 / 30%), transparent)",
+              backgroundSize: "200% 100%",
+              animation: "shimmer 2.5s linear infinite",
+            }}
+          />
+          <Lock size={16} className="relative" />
+          <span className="relative">Lock in</span>
+        </button>
+      }
+    >
       <div
         className="glass rounded-2xl p-4"
         style={{
@@ -67,27 +94,6 @@ export function ConfirmScreen({
           }
         />
       </div>
-
-      <button
-        onClick={onLock}
-        className="group relative mt-auto flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl text-sm font-semibold uppercase tracking-[0.4em] text-primary-foreground transition-transform active:scale-[0.98]"
-        style={{
-          background: "var(--gradient-leaf)",
-          boxShadow: "0 0 34px -12px color-mix(in oklab, var(--primary) 72%, transparent)",
-        }}
-      >
-        <span
-          className="absolute inset-0 opacity-50"
-          style={{
-            background:
-              "linear-gradient(90deg, transparent, oklch(1 0 0 / 30%), transparent)",
-            backgroundSize: "200% 100%",
-            animation: "shimmer 2.5s linear infinite",
-          }}
-        />
-        <Lock size={16} className="relative" />
-        <span className="relative">Lock in</span>
-      </button>
     </SetupShell>
   );
 }

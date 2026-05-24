@@ -74,7 +74,16 @@ export function AppsScreen({
   }
 
   return (
-    <SetupShell step={3} title="Allowed apps" plantStage={2}>
+    <SetupShell
+      step={3}
+      title="Allowed apps"
+      plantStage={2}
+      footer={
+        <PrimaryButton onClick={onNext} disabled={apps.length === 0}>
+          Continue <ChevronRight size={16} />
+        </PrimaryButton>
+      }
+    >
       <div className="flex flex-wrap gap-2">
         {defaults.map((a) => (
           <Chip key={a} active={apps.includes(a)} onClick={() => toggle(a)}>
@@ -173,9 +182,6 @@ export function AppsScreen({
       {apps.length === 0 && (
         <p className="text-[10px] text-warning/80">Pick at least one allowed app to continue.</p>
       )}
-      <PrimaryButton onClick={onNext} disabled={apps.length === 0} className="mt-auto">
-        Continue <ChevronRight size={16} />
-      </PrimaryButton>
     </SetupShell>
   );
 }

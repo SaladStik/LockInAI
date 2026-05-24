@@ -81,7 +81,16 @@ export function SitesScreen({
   }
 
   return (
-    <SetupShell step={4} title="Allowed websites" plantStage={3}>
+    <SetupShell
+      step={4}
+      title="Allowed websites"
+      plantStage={3}
+      footer={
+        <PrimaryButton onClick={onNext}>
+          Continue <ChevronRight size={16} />
+        </PrimaryButton>
+      }
+    >
       <div className="rounded-xl border border-primary-glow/30 bg-primary/5 px-3 py-2">
         <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-primary-glow">
           always allowed
@@ -209,9 +218,6 @@ export function SitesScreen({
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         Other tabs will be auto-closed back to your last allowed page.
       </p>
-      <PrimaryButton onClick={onNext} className="mt-auto">
-        Continue <ChevronRight size={16} />
-      </PrimaryButton>
     </SetupShell>
   );
 }
