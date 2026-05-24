@@ -20,8 +20,39 @@ function init(userDataDir) {
       host TEXT NOT NULL UNIQUE COLLATE NOCASE,
       created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
     );
+    CREATE TABLE IF NOT EXISTS garden_plants (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      stage INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('alive', 'dead')),
+      days INTEGER NOT NULL,
+      subject TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
+    );
   `);
+  seedGardenIfEmpty();
   return db;
+}
+
+const SEED_GARDEN = [
+  { id: "p1", name: "Aurora", stage: 4, status: "alive", days: 23, subject: "Coding" },
+  { id: "p2", name: "Sprig", stage: 3, status: "alive", days: 14, subject: "Math" },
+  { id: "p3", name: "Ember", stage: 2, status: "alive", days: 7, subject: "Reading" },
+  { id: "p4", name: "Mossy", stage: 0, status: "dead", days: 2, subject: "Writing" },
+  { id: "p5", name: "Vine", stage: 1, status: "dead", days: 4, subject: "Exam Prep" },
+  { id: "p6", name: "Lumen", stage: 2, status: "dead", days: 9, subject: "Coding" },
+];
+
+function seedGardenIfEmpty() {
+  if (!db) return;
+  const row = db.prepare("SELECT COUNT(*) AS c FROM garden_plants").get();
+  if (Number(row?.c ?? 0) > 0) return;
+  const stmt = db.prepare(
+    "INSERT INTO garden_plants (id, name, stage, status, days, subject) VALUES (?, ?, ?, ?, ?, ?)",
+  );
+  for (const p of SEED_GARDEN) {
+    stmt.run(p.id, p.name, p.stage, p.status, p.days, p.subject);
+  }
 }
 
 function normalizeHost(input) {
@@ -108,6 +139,42 @@ function removeCustomSite(id) {
   return res.changes > 0;
 }
 
+function listGardenPlants() {
+  if (!db) throw new Error("db not initialized");
+  return db
+    .prepare(
+      `SELECT id, name, stage, status, days, subject, created_at
+       FROM garden_plants
+       ORDER BY created_at DESC`,
+    )
+    .all();
+}
+
+function addGardenPlant(plant) {
+  if (!db) throw new Error("db not initialized");
+  const id = String(plant?.id ?? "").trim();
+  const name = String(plant?.name ?? "").trim();
+  const stage = Number(plant?.stage);
+  const status = plant?.status;
+  const days = Number(plant?.days);
+  const subject = String(plant?.subject ?? "").trim();
+  if (!id) throw new Error("id required");
+  if (!name) throw new Error("name required");
+  if (!Number.isFinite(stage) || stage < 0) throw new Error("invalid stage");
+  if (status !== "alive" && status !== "dead") throw new Error("invalid status");
+  if (!Number.isFinite(days) || days < 0) throw new Error("invalid days");
+  if (!subject) throw new Error("subject required");
+  if (name.length > 64) throw new Error("name too long");
+  if (subject.length > 64) throw new Error("subject too long");
+
+  db.prepare(
+    `INSERT INTO garden_plants (id, name, stage, status, days, subject)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(id, name, stage, status, days, subject);
+
+  return { id, name, stage, status, days, subject };
+}
+
 module.exports = {
   init,
   listCustomApps,
@@ -116,4 +183,6 @@ module.exports = {
   listCustomSites,
   addCustomSite,
   removeCustomSite,
+  listGardenPlants,
+  addGardenPlant,
 };

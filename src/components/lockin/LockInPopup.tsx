@@ -23,6 +23,7 @@ import { SettingsScreen } from "./SettingsScreen";
 import { useActiveApp } from "@/hooks/useActiveApp";
 import { useCustomApps } from "@/hooks/useCustomApps";
 import { useCustomSites } from "@/hooks/useCustomSites";
+import { useGarden } from "@/hooks/useGarden";
 import {
   buildAchievements,
   streakSkin,
@@ -30,7 +31,7 @@ import {
   type Achievement,
 } from "./achievements";
 import { isAllowedFocusApp, ALWAYS_ALLOWED_HOSTS, hostnameOf } from "@/lib/apps";
-import { createPlantId, resolvePlantName } from "@/lib/garden";
+import { createPlantId, resolvePlantName, type GardenPlant } from "@/lib/garden";
 import { speak, setVoiceMuted, isVoiceMuted } from "@/lib/voice";
 
 type Screen =
@@ -57,25 +58,6 @@ const ALL_SITES = [
   "youtube.com",
 ];
 
-type PlantStatus = "alive" | "dead";
-interface GardenPlant {
-  id: string;
-  name: string;
-  stage: number;
-  status: PlantStatus;
-  days: number;
-  subject: string;
-}
-
-const INITIAL_GARDEN: GardenPlant[] = [
-  { id: "p1", name: "Aurora", stage: 4, status: "alive", days: 23, subject: "Coding" },
-  { id: "p2", name: "Sprig", stage: 3, status: "alive", days: 14, subject: "Math" },
-  { id: "p3", name: "Ember", stage: 2, status: "alive", days: 7, subject: "Reading" },
-  { id: "p4", name: "Mossy", stage: 0, status: "dead", days: 2, subject: "Writing" },
-  { id: "p5", name: "Vine", stage: 1, status: "dead", days: 4, subject: "Exam Prep" },
-  { id: "p6", name: "Lumen", stage: 2, status: "dead", days: 9, subject: "Coding" },
-];
-
 export function LockInPopup() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [subject, setSubject] = useState<string>("Coding");
@@ -91,7 +73,7 @@ export function LockInPopup() {
   const [breach, setBreach] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
   const [emergencyExit, setEmergencyExit] = useState<boolean>(false);
-  const [garden, setGarden] = useState<GardenPlant[]>(INITIAL_GARDEN);
+  const { plants: garden, addPlant } = useGarden();
   const [totalSessions, setTotalSessions] = useState<number>(12);
   const [longestSessionMin, setLongestSessionMin] = useState<number>(45);
   const [voiceOn, setVoiceOn] = useState<boolean>(!isVoiceMuted());
@@ -156,17 +138,14 @@ export function LockInPopup() {
       setLongestSessionMin((m) => Math.max(m, minutes));
       setStage((s) => {
         const next = Math.min(4, s + 1);
-        setGarden((g) => [
-          {
-            id: createPlantId(),
-            name: activePlantName,
-            stage: next,
-            status: "alive",
-            days: 1,
-            subject,
-          },
-          ...g,
-        ]);
+        void addPlant({
+          id: createPlantId(),
+          name: activePlantName,
+          stage: next,
+          status: "alive",
+          days: 1,
+          subject,
+        });
         return next;
       });
       speak("Session complete. Your plant bloomed.");
@@ -174,7 +153,7 @@ export function LockInPopup() {
     }
     const t = window.setInterval(() => setSecondsLeft((s) => s - 1), 1000);
     return () => window.clearInterval(t);
-  }, [screen, secondsLeft, activePlantName, minutes, subject]);
+  }, [screen, secondsLeft, activePlantName, minutes, subject, addPlant]);
 
   // Focus protection: OS-level app detection in Electron (Windows/macOS/Linux).
   useEffect(() => {
@@ -265,17 +244,14 @@ export function LockInPopup() {
   function emergencyExitNow() {
     setEmergencyExit(true);
     setTotalSessions((n) => n + 1);
-    setGarden((g) => [
-      {
-        id: createPlantId(),
-        name: activePlantName,
-        stage: Math.max(0, stage - 1),
-        status: "dead",
-        days: 1,
-        subject,
-      },
-      ...g,
-    ]);
+    void addPlant({
+      id: createPlantId(),
+      name: activePlantName,
+      stage: Math.max(0, stage - 1),
+      status: "dead",
+      days: 1,
+      subject,
+    });
     setScreen("complete");
     speak("Streak broken. Your Lockie is disappointed.");
   }
