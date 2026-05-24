@@ -382,8 +382,16 @@ function startActiveAppPolling(win) {
           if (inBrowser) {
             // Companion extension is the reliable path (real tab ids, no
             // keystrokes/UIA): send the offending tab in the focused browser to
-            // the "nuh uh uh" page.
-            if (extBridge.isConnected() && typeof snapshot.extTabId === "number") {
+            // the new-tab page. Never re-navigate a tab that's already there —
+            // that would spam-reset the URL in a loop.
+            const alreadyBlocked = /\/\/(127\.0\.0\.1|localhost):\d+\/blocked/i.test(
+              snapshot.url ?? "",
+            );
+            if (
+              extBridge.isConnected() &&
+              typeof snapshot.extTabId === "number" &&
+              !alreadyBlocked
+            ) {
               const blocked = blockedPageUrlFor(focusSession.allowedSites);
               if (await extBridge.navigateTab(snapshot.extTabId, blocked)) {
                 restored = { windowId: null, refocused: blocked };

@@ -26,6 +26,27 @@ const EXE_MATCHERS = {
   Spotify: [/\\spotify\.exe$/i],
 };
 
+// Apps that are really websites — allowing the app should permit its site(s)
+// when accessed in a browser. (The "Chrome" app is the browser itself and
+// grants no site; browser usage is governed by allowed sites.)
+const APP_SITE_HOSTS = {
+  YouTube: ["youtube.com", "youtu.be"],
+  Notion: ["notion.so"],
+  Figma: ["figma.com"],
+  Spotify: ["open.spotify.com", "spotify.com"],
+  VSCode: ["vscode.dev", "github.dev"],
+};
+
+/** Allowed sites + the site hosts of any allowed site-like apps. */
+function effectiveAllowedHosts(allowedApps = [], allowedSites = []) {
+  const hosts = [...allowedSites];
+  for (const label of allowedApps) {
+    const extra = APP_SITE_HOSTS[label];
+    if (extra) hosts.push(...extra);
+  }
+  return hosts;
+}
+
 const OUR_APP_PATTERNS = [/electron/i, /lockin/i, /lock\/\/in/i];
 
 const SYSTEM_BUNDLE_IDS = new Set([
@@ -154,25 +175,26 @@ function isAllowedFocusApp(snapshot, allowedApps, allowedSites = []) {
   if (isOwnApp(snapshot)) return true;
   if (isSystemApp(snapshot)) return true;
 
+  // Browser/web context: when we have a real URL, the decision is the SITE, not
+  // which browser binary it is. We can't expect every browser (e.g. Vivaldi) to
+  // be on the allowed-apps list, and a new-tab page or our own blocked page is
+  // neutral ground (isSiteAllowed returns true for those). Site-like allowed
+  // apps (YouTube, Notion, …) contribute their hosts.
+  if (snapshot.url) {
+    return isSiteAllowed(snapshot.url, effectiveAllowedHosts(allowedApps, allowedSites));
+  }
+
+  // Native app (no URL): judge by app match.
   const app = snapshot.app ?? "";
   const path = snapshot.path ?? "";
   const title = snapshot.title ?? "";
-
-  const appAllowed = allowedApps.some((label) => {
+  return allowedApps.some((label) => {
     const patterns = APP_MATCHERS[label] ?? [new RegExp(label, "i")];
     if (patterns.some((re) => re.test(app) || re.test(path))) return true;
     if (EXE_MATCHERS[label]?.some((re) => re.test(path))) return true;
     if (label === "YouTube" && /youtube/i.test(title)) return true;
     return false;
   });
-  if (!appAllowed) return false;
-
-  // App is allowed. If this is a browser with a captured URL, the site must
-  // also be on the allowed list (or be an always-allowed default).
-  if (snapshot.url) {
-    return isSiteAllowed(snapshot.url, allowedSites);
-  }
-  return true;
 }
 
 module.exports = {
