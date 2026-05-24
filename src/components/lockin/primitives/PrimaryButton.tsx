@@ -16,7 +16,8 @@ export function PrimaryButton({
       className={`relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl text-sm font-medium text-primary-foreground transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${className}`}
       style={{
         background: "var(--gradient-leaf)",
-        boxShadow: "var(--shadow-glow-primary)",
+        // Pulled-in glow so it fades within the popup instead of clipping square.
+        boxShadow: "0 0 34px -12px color-mix(in oklab, var(--primary) 70%, transparent)",
       }}
     >
       <span

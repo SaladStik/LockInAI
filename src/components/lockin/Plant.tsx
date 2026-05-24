@@ -94,6 +94,16 @@ export function Plant({
             <stop offset="0%" stopColor={dead ? "oklch(0.55 0.04 60)" : pal.accent} />
             <stop offset="100%" stopColor={dead ? "oklch(0.38 0.03 55)" : pal.glow} />
           </radialGradient>
+          {/* Glow filters with a wide region so the blur fades out fully instead
+              of being clipped to a hard square by the default filter region. */}
+          {glowBlur > 0 && (
+            <filter id={`glow-${uid}`} x="-100%" y="-100%" width="300%" height="300%">
+              <feDropShadow dx="0" dy="0" stdDeviation={glowBlur} floodColor={pal.glow} floodOpacity="0.85" />
+            </filter>
+          )}
+          <filter id={`spark-${uid}`} x="-400%" y="-400%" width="900%" height="900%">
+            <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor={pal.glow} floodOpacity="0.9" />
+          </filter>
         </defs>
 
         {/* soil mound — fixed size so the ground reads consistently */}
@@ -110,7 +120,7 @@ export function Plant({
 
           <path d={model.stemPath} fill="none" stroke={stemStroke} strokeWidth={model.trunkW} strokeLinecap="round" />
 
-          <g style={{ filter: glowBlur ? `drop-shadow(0 0 ${glowBlur}px ${pal.glow})` : undefined }}>
+          <g filter={glowBlur ? `url(#glow-${uid})` : undefined}>
             {model.stemLeaves.map((lf, i) => (
               <path
                 key={`l${i}`}
@@ -124,7 +134,7 @@ export function Plant({
           </g>
 
           {sparkles.map((sp, i) => (
-            <circle key={`s${i}`} cx={sp.x} cy={sp.y} r={sp.r} fill={pal.accent} style={{ filter: `drop-shadow(0 0 3px ${pal.glow})` }}>
+            <circle key={`s${i}`} cx={sp.x} cy={sp.y} r={sp.r} fill={pal.accent} filter={`url(#spark-${uid})`}>
               <animate attributeName="opacity" values="0.15;1;0.15" dur={`${2 + sp.delay}s`} begin={`${sp.delay}s`} repeatCount="indefinite" />
               <animate attributeName="cy" values={`${sp.y};${sp.y - 6};${sp.y}`} dur={`${2.6 + sp.delay}s`} begin={`${sp.delay}s`} repeatCount="indefinite" />
             </circle>

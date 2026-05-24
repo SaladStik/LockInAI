@@ -19,8 +19,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openScreenRecordingSettings: () => ipcRenderer.send("open:screen-recording-settings"),
   requestPermissions: () => ipcRenderer.invoke("permissions:request"),
   getPermissionsStatus: () => ipcRenderer.invoke("permissions:status"),
-  syncFocusSession: (active, allowedApps, allowedSites) =>
-    ipcRenderer.send("focus-session:sync", { active, allowedApps, allowedSites }),
+  syncFocusSession: (active, allowedApps, allowedSites, opts) =>
+    ipcRenderer.send("focus-session:sync", {
+      active,
+      allowedApps,
+      allowedSites,
+      hideGemini: Boolean(opts?.hideGemini),
+    }),
   onFocusRestored: (cb) => {
     const listener = (_event, payload) => cb(payload);
     ipcRenderer.on("focus:restored", listener);

@@ -23,9 +23,9 @@ let backoffMs = 500;
 const MAX_BACKOFF_MS = 10000;
 
 // Pushed by the app: whether a focus session is active, where the blocked page
-// lives (for new-tab redirects), and the allowed hostnames (for filtering
-// search results).
-let session = { active: false, blockedUrl: null, allowedHosts: [] };
+// lives (for new-tab redirects), the allowed hostnames (for filtering search
+// results), and whether to hide Google's AI Overview (Gemini) on results pages.
+let session = { active: false, blockedUrl: null, allowedHosts: [], hideGemini: false };
 
 function browserLabel() {
   try {
@@ -72,6 +72,7 @@ function connect() {
         active: Boolean(msg.active),
         blockedUrl: msg.blockedUrl || null,
         allowedHosts: Array.isArray(msg.allowedHosts) ? msg.allowedHosts : [],
+        hideGemini: Boolean(msg.hideGemini),
       };
     } else if (msg.type === "navigate") {
       handleNavigate(msg);
@@ -167,10 +168,26 @@ function isNewTabUrl(url) {
   return NEW_TAB_RE.test(url);
 }
 
+// The bare Google homepage (no search) is treated as a blank canvas during a
+// session and replaced with our own new-tab page. A real search (/search?q=…)
+// is left alone so google-skin can re-skin the results instead.
+function isGoogleHome(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    const parts = host.split(".");
+    if (parts[0] !== "google" || parts.length > 3) return false;
+    if (u.pathname !== "/" && u.pathname !== "/webhp") return false;
+    return !u.searchParams.get("q");
+  } catch {
+    return false;
+  }
+}
+
 function maybeRedirectNewTab(tabId, url) {
   if (!session.active || !session.blockedUrl) return;
   if (typeof tabId !== "number") return;
-  if (isNewTabUrl(url)) {
+  if (isNewTabUrl(url) || isGoogleHome(url)) {
     chrome.tabs.update(tabId, { url: session.blockedUrl }).catch(() => {});
   }
 }
@@ -192,26 +209,20 @@ chrome.windows.onFocusChanged.addListener(() => reportTabs());
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // The result-filter content script asks for the current allow-list.
   if (msg?.type === "get-filter-state") {
-    sendResponse({ active: session.active, allowedHosts: session.allowedHosts });
+    sendResponse({
+      active: session.active,
+      allowedHosts: session.allowedHosts,
+      hideGemini: session.hideGemini,
+    });
     return; // synchronous response
   }
+  // Searches from the new-tab page always go to Google (not the browser's
+  // default engine) so the locked-in results page is consistent and re-skinnable.
   if (msg?.type !== "lockin-search" || !msg.q) return;
   const q = String(msg.q);
   const tabId = sender.tab?.id;
-  const googleFallback = () => {
-    const g = "https://www.google.com/search?q=" + encodeURIComponent(q);
-    if (typeof tabId === "number") chrome.tabs.update(tabId, { url: g }).catch(() => {});
-  };
-  try {
-    if (chrome.search?.query) {
-      const opts = typeof tabId === "number" ? { text: q, tabId } : { text: q, disposition: "CURRENT_TAB" };
-      chrome.search.query(opts, () => {
-        if (chrome.runtime.lastError) googleFallback();
-      });
-      return;
-    }
-  } catch {}
-  googleFallback();
+  const g = "https://www.google.com/search?q=" + encodeURIComponent(q);
+  if (typeof tabId === "number") chrome.tabs.update(tabId, { url: g }).catch(() => {});
 });
 
 // ---- Lifecycle / keep-alive ----------------------------------------------

@@ -15,9 +15,13 @@ const SAMPLE_PHRASE = "Lock in. Stay focused. You've got this.";
 export function SettingsScreen({
   onBack,
   onClearGarden,
+  hideGemini,
+  onToggleGemini,
 }: {
   onBack: () => void;
   onClearGarden: () => Promise<void>;
+  hideGemini: boolean;
+  onToggleGemini: (value: boolean) => void;
 }) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>(() => listVoices());
   const [selected, setSelected] = useState<string | null>(() => getSelectedVoiceURI());
@@ -126,6 +130,41 @@ export function SettingsScreen({
             onPreview={() => preview(v.voiceURI)}
           />
         ))}
+
+        <div className="mt-4 border-t border-border/40 pt-4">
+          <div className="text-[11px] font-medium text-foreground">Locked-in browser</div>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+            Searches always run on Google and the results page is re-skinned to match LOCK//IN.
+          </p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={hideGemini}
+            onClick={() => onToggleGemini(!hideGemini)}
+            className="glass mt-3 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition hover:bg-secondary/40"
+          >
+            <div className="min-w-0 flex-1 pr-3">
+              <div className="text-[11px] font-medium text-foreground">Hide Google AI Overview</div>
+              <div className="truncate font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">
+                {hideGemini ? "Gemini answers hidden" : "Gemini answers shown"}
+              </div>
+            </div>
+            <span
+              className="relative h-5 w-9 shrink-0 rounded-full transition-colors"
+              style={{
+                background: hideGemini
+                  ? "var(--primary-glow)"
+                  : "color-mix(in oklab, var(--border) 80%, transparent)",
+                boxShadow: hideGemini ? "0 0 14px -4px var(--primary-glow)" : undefined,
+              }}
+            >
+              <span
+                className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
+                style={{ left: hideGemini ? "1.125rem" : "0.125rem" }}
+              />
+            </span>
+          </button>
+        </div>
 
         <div className="mt-4 border-t border-border/40 pt-4">
           <div className="text-[11px] font-medium text-foreground">Reset app</div>

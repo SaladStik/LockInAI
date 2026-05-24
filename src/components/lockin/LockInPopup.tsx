@@ -10,8 +10,9 @@ import { useCustomSessions } from "@/hooks/useCustomSessions";
 import { useGarden } from "@/hooks/useGarden";
 import { streakSkin, streakSkinLabel } from "./achievements";
 import { isAllowedFocusApp, hostnameOf } from "@/lib/apps";
-import { createPlantId, resolvePlantName } from "@/lib/garden";
+import { createPlantId, resolvePlantName, type GardenPlant } from "@/lib/garden";
 import { speak, setVoiceMuted, isVoiceMuted } from "@/lib/voice";
+import { getHideGemini, setHideGemini } from "@/lib/browserPrefs";
 import type { Screen } from "./types";
 import { WelcomeScreen } from "./screens/WelcomeScreen";
 import { SubjectScreen } from "./screens/SubjectScreen";
@@ -41,11 +42,15 @@ export function LockInPopup() {
   const [breach, setBreach] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
   const [emergencyExit, setEmergencyExit] = useState<boolean>(false);
+  // The exact plant grown by the session just finished — shown on the complete
+  // screen so it matches its garden self (same id-seed, stage, rarity, status).
+  const [lastPlant, setLastPlant] = useState<GardenPlant | null>(null);
   const { plants: garden, addPlant, clearGarden } = useGarden();
   const [totalSessions, setTotalSessions] = useState<number>(12);
   const [longestSessionMin, setLongestSessionMin] = useState<number>(45);
   const [voiceOn, setVoiceOn] = useState<boolean>(!isVoiceMuted());
   const [breachCount, setBreachCount] = useState<number>(0);
+  const [hideGemini, setHideGeminiState] = useState<boolean>(() => getHideGemini());
   const MAX_BREACHES = 3;
   const breachTimer = useRef<number | null>(null);
   const focusAllowedRef = useRef(true);
@@ -105,12 +110,17 @@ export function LockInPopup() {
   // Tell the main process which apps + sites are allowed so it can snap back.
   useEffect(() => {
     if (!hasNativeAppDetection) return;
-    window.electronAPI?.syncFocusSession(screen === "focus", apps, sites);
+    window.electronAPI?.syncFocusSession(screen === "focus", apps, sites, { hideGemini });
     if (screen !== "focus") {
       focusAllowedRef.current = true;
       sessionStartGraceRef.current = null;
     }
-  }, [screen, apps, sites, hasNativeAppDetection]);
+  }, [screen, apps, sites, hasNativeAppDetection, hideGemini]);
+
+  function toggleHideGemini(value: boolean) {
+    setHideGemini(value);
+    setHideGeminiState(value);
+  }
 
   useEffect(() => {
     if (!hasNativeAppDetection) return;
@@ -137,29 +147,29 @@ export function LockInPopup() {
   useEffect(() => {
     if (screen !== "focus") return;
     if (secondsLeft <= 0) {
-      setScreen("complete");
+      const next = Math.min(4, stage + 1);
+      const plant: GardenPlant = {
+        id: createPlantId(),
+        name: activePlantName || resolvePlantName(plantName, garden.map((p) => p.name)),
+        stage: next,
+        status: "alive",
+        days: 1,
+        subject,
+        minutes,
+      };
+      void addPlant(plant);
+      setLastPlant(plant);
+      setStage(next);
       setXp((x) => x + 50);
       setTotalSessions((n) => n + 1);
       setLongestSessionMin((m) => Math.max(m, minutes));
-      setStage((s) => {
-        const next = Math.min(4, s + 1);
-        void addPlant({
-          id: createPlantId(),
-          name: activePlantName || resolvePlantName(plantName, garden.map((p) => p.name)),
-          stage: next,
-          status: "alive",
-          days: 1,
-          subject,
-          minutes,
-        });
-        return next;
-      });
+      setScreen("complete");
       speak("Session complete. Your plant bloomed.");
       return;
     }
     const t = window.setInterval(() => setSecondsLeft((s) => s - 1), 1000);
     return () => window.clearInterval(t);
-  }, [screen, secondsLeft, activePlantName, minutes, subject, addPlant]);
+  }, [screen, secondsLeft, stage, activePlantName, plantName, garden, minutes, subject, addPlant]);
 
   // Focus protection: OS-level app detection in Electron (Windows/macOS/Linux).
   useEffect(() => {
@@ -229,14 +239,13 @@ export function LockInPopup() {
 
   function startSession() {
     // Building a new custom session — persist it as a reusable preset. The DB
-    // requires at least one allowed app, so fall back to Chrome, and surface
-    // any save failure instead of swallowing it.
+    // requires at least one allowed app, so fall back to Chrome.
     if (sessionKey === "new" && subject.trim()) {
       addCustomSession({
         name: subject.trim(),
         default_apps: apps.length ? apps : ["Chrome"],
         default_sites: sites,
-      }).catch((e) => console.error("[custom-session] save failed:", e));
+      }).catch((e) => console.warn("[custom-session] save failed:", e?.message ?? e));
     }
     if (!activePlantName) {
       setActivePlantName(resolvePlantName(plantName, garden.map((p) => p.name)));
@@ -258,9 +267,7 @@ export function LockInPopup() {
   }
 
   function emergencyExitNow() {
-    setEmergencyExit(true);
-    setTotalSessions((n) => n + 1);
-    void addPlant({
+    const plant: GardenPlant = {
       id: createPlantId(),
       name: activePlantName || resolvePlantName(plantName, garden.map((p) => p.name)),
       stage: Math.max(0, stage - 1),
@@ -268,7 +275,11 @@ export function LockInPopup() {
       days: 1,
       subject,
       minutes,
-    });
+    };
+    void addPlant(plant);
+    setLastPlant(plant);
+    setEmergencyExit(true);
+    setTotalSessions((n) => n + 1);
     setScreen("complete");
     speak("Streak broken. Your Lockie is disappointed.");
   }
@@ -492,6 +503,7 @@ export function LockInPopup() {
               <CompleteScreen
                 minutes={minutes}
                 stage={stage}
+                plant={lastPlant}
                 broken={emergencyExit}
                 onAgain={() => {
                   setEmergencyExit(false);
@@ -540,7 +552,12 @@ export function LockInPopup() {
               />
             )}
             {screen === "settings" && (
-              <SettingsScreen onBack={() => setScreen("welcome")} onClearGarden={clearGarden} />
+              <SettingsScreen
+                onBack={() => setScreen("welcome")}
+                onClearGarden={clearGarden}
+                hideGemini={hideGemini}
+                onToggleGemini={toggleHideGemini}
+              />
             )}
           </motion.div>
         </AnimatePresence>

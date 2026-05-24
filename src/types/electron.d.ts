@@ -72,6 +72,7 @@ declare global {
         active: boolean,
         allowedApps: string[],
         allowedSites: string[],
+        opts?: { hideGemini?: boolean },
       ) => void;
       onFocusRestored: (
         cb: (payload: {

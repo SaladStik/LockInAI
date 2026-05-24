@@ -212,6 +212,7 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
     active: Boolean(payload?.active),
     allowedApps: Array.isArray(payload?.allowedApps) ? payload.allowedApps : [],
     allowedSites: Array.isArray(payload?.allowedSites) ? payload.allowedSites : [],
+    hideGemini: Boolean(payload?.hideGemini),
   };
   if (focusSession.active && !wasActive) {
     // Grace the current snapshot — don't penalize the user for an app they
@@ -265,6 +266,8 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
     allowedHosts: focusSession.active
       ? allowedHostsFor(focusSession.allowedApps, focusSession.allowedSites)
       : [],
+    // Whether to hide Google's AI Overview (Gemini) on the re-skinned results page.
+    hideGemini: focusSession.hideGemini,
   });
 });
 

@@ -1,0 +1,108 @@
+/*
+ * LOCK//IN "locked-in browser" — minimal Google wrapper.
+ *
+ * Scope (intentionally small): during a focus session we
+ *   • replace Google's top bar (logo + search box + the All/Images/News/Shopping
+ *     mode tabs) with our own #lockin-header, and
+ *   • let result-filter.js remove disallowed results.
+ * Everything else about Google is left exactly as Google renders it — no
+ * background repaint, no recolouring, no invert. So results, images, YouTube and
+ * the AI Overview look native; we just swap the chrome at the top.
+ */
+
+/* make room for our fixed header */
+html.lockin-locked body {
+  padding-top: 116px !important;
+}
+
+/* hide Google's own top bar + the result-mode tabs (we replace them) */
+html.lockin-locked #searchform,
+html.lockin-locked #sfcnt,
+html.lockin-locked #sfooter,
+html.lockin-locked #appbar,
+html.lockin-locked #top_nav,
+html.lockin-locked #hdtb,
+html.lockin-locked #hdtb-msb,
+html.lockin-locked #hdtbMenus,
+html.lockin-locked #before-appbar,
+html.lockin-locked .crJ18e,
+html.lockin-locked .IUOThf,
+html.lockin-locked #lockin-badge {
+  display: none !important;
+}
+
+/* AI Overview (Gemini) — hidden only when the user disables it in Settings */
+html.lockin-hide-gemini [data-attrid*="AIOverview" i],
+html.lockin-hide-gemini div[aria-label*="AI Overview" i],
+html.lockin-hide-gemini .M8OgIe,
+html.lockin-hide-gemini .YzCcne {
+  display: none !important;
+}
+
+/* ---- our floating top bar ------------------------------------------------ */
+#lockin-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 18px;
+  background: linear-gradient(oklch(0.11 0.02 250 / 0.98), oklch(0.13 0.02 250 / 0.92));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid oklch(1 0 0 / 8%);
+  box-shadow: 0 8px 30px -18px oklch(0 0 0 / 0.6);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", system-ui, sans-serif;
+}
+#lockin-header .lk-brand {
+  font:
+    700 12px/1 ui-monospace,
+    "SF Mono",
+    monospace;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: oklch(0.85 0.16 215);
+  text-shadow: 0 0 18px oklch(0.6 0.16 220 / 0.4);
+}
+#lockin-header .lk-slash {
+  color: oklch(0.7 0.18 220);
+}
+#lockin-header .lk-search {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+}
+#lockin-header .lk-mag {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  opacity: 0.55;
+  pointer-events: none;
+  color: oklch(0.95 0.02 250);
+}
+#lockin-header .lk-search input {
+  width: 100%;
+  padding: 14px 22px 14px 52px;
+  border-radius: 999px;
+  border: 1px solid oklch(1 0 0 / 10%);
+  background: oklch(0.16 0.02 250 / 0.9);
+  color: oklch(0.96 0.02 250);
+  font-size: 15px;
+  outline: none;
+  box-shadow: 0 14px 44px -18px oklch(0 0 0 / 0.65);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+#lockin-header .lk-search input::placeholder {
+  color: oklch(0.55 0.03 250);
+}
+#lockin-header .lk-search input:focus {
+  border-color: oklch(0.7 0.18 220 / 0.7);
+  background: oklch(0.18 0.02 250 / 0.95);
+  box-shadow: 0 14px 48px -16px oklch(0.6 0.16 220 / 0.4);
+}

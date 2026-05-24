@@ -22,6 +22,16 @@ export function CircularTimer({ progress, size = 220, children, warning }: Circu
         }}
       />
       <svg width={size} height={size} className="relative -rotate-90">
+        <defs>
+          {/* wide region so the arc glow fades smoothly instead of squaring off */}
+          <filter id="ct-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -40,10 +50,8 @@ export function CircularTimer({ progress, size = 220, children, warning }: Circu
           fill="none"
           strokeDasharray={c}
           strokeDashoffset={offset}
-          style={{
-            transition: "stroke-dashoffset 1s linear, stroke 0.4s",
-            filter: `drop-shadow(0 0 8px ${color})`,
-          }}
+          filter="url(#ct-glow)"
+          style={{ transition: "stroke-dashoffset 1s linear, stroke 0.4s" }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>

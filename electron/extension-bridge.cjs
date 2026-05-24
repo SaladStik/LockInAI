@@ -189,12 +189,13 @@ function createBridge() {
     return conn ? commandTo(socketFor(conn), "switch", { tabId }) : Promise.resolve(false);
   }
 
-  /** Push focus-session state (active, blocked-page URL, allowed hosts) to every browser. */
-  function broadcastSession({ active, blockedUrl, allowedHosts }) {
+  /** Push focus-session state (active, blocked-page URL, allowed hosts, gemini pref) to every browser. */
+  function broadcastSession({ active, blockedUrl, allowedHosts, hideGemini }) {
     lastSession = {
       active: Boolean(active),
       blockedUrl: blockedUrl ?? null,
       allowedHosts: Array.isArray(allowedHosts) ? allowedHosts : [],
+      hideGemini: Boolean(hideGemini),
     };
     const payload = JSON.stringify({ type: "session", ...lastSession });
     for (const socket of conns.keys()) {

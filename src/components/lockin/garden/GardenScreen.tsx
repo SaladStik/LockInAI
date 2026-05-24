@@ -142,6 +142,13 @@ export function GardenScreen({
               <stop offset="0%" stopColor="oklch(0.6 0.14 200)" />
               <stop offset="100%" stopColor="oklch(0.62 0.16 158)" />
             </linearGradient>
+            <filter id="garden-glow" x="-10%" y="-40%" width="120%" height="180%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
           {Array.from({ length: Math.ceil(contentW / 70) }).map((_, k) => {
             const fx = k * 70 + hash01(`fx${k}`) * 64;
@@ -172,7 +179,7 @@ export function GardenScreen({
             strokeLinecap="round"
             strokeDasharray="2 11"
             opacity="0.9"
-            style={{ filter: "drop-shadow(0 0 5px oklch(0.7 0.16 200))" }}
+            filter="url(#garden-glow)"
           />
         </svg>
         {layout.map((it) => {

@@ -22,9 +22,13 @@ export function ConfirmScreen({
     <SetupShell step={5} title="Ready to lock in?" plantStage={3} excited>
       <div
         className="glass rounded-2xl p-4"
-        style={{ boxShadow: "var(--shadow-glow-accent)" }}
+        style={{
+          // Pulled-in glow (big blur, strong negative spread) so it fades out
+          // before the popup's hard edge instead of being clipped to a square.
+          boxShadow: "0 0 34px -12px color-mix(in oklab, var(--accent) 60%, transparent)",
+        }}
       >
-        <Row label={newPreset ? "New session" : "Session"} value={subject} />
+        <Row label={newPreset ? "New preset" : "Session"} value={subject} />
         {newPreset && (
           <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-primary-glow">
             ↳ saved as a reusable preset
@@ -69,7 +73,7 @@ export function ConfirmScreen({
         className="group relative mt-auto flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl text-sm font-semibold uppercase tracking-[0.4em] text-primary-foreground transition-transform active:scale-[0.98]"
         style={{
           background: "var(--gradient-leaf)",
-          boxShadow: "var(--shadow-glow-primary)",
+          boxShadow: "0 0 34px -12px color-mix(in oklab, var(--primary) 72%, transparent)",
         }}
       >
         <span

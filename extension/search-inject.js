@@ -3,8 +3,8 @@
  *
  * The page's search form submits to Google as a no-extension fallback. When
  * this content script is present, it intercepts the submit and asks the service
- * worker to run the query through the browser's *default* search engine
- * (chrome.search.query), so the search bar respects the user's chosen engine.
+ * worker to run the query through Google, so the locked-in results page is
+ * always Google (and can be re-skinned by google-skin.js).
  *
  * Listening on the document in the capture phase means we catch the submit
  * before the form's native navigation, regardless of when the form renders.

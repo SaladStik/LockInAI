@@ -72,7 +72,7 @@ export function Lockie({ mood = "idle", size = 90, skin = "none" }: LockieProps)
           opacity: mood === "sad" ? 0.3 : 0.85,
         }}
       />
-      <svg viewBox="0 0 100 100" width={size} height={size} className="relative">
+      <svg viewBox="0 0 100 100" width={size} height={size} className="relative" style={{ overflow: "visible" }}>
         <defs>
           <radialGradient id={`lockie-body-${mood}`} cx="0.4" cy="0.35" r="0.7">
             <stop offset="0%" stopColor={palette.light} />
@@ -87,6 +87,16 @@ export function Lockie({ mood = "idle", size = 90, skin = "none" }: LockieProps)
             <stop offset="0%" stopColor="oklch(0.95 0.18 90)" />
             <stop offset="100%" stopColor="oklch(0.7 0.18 70)" />
           </linearGradient>
+          {/* Soft glow with a wide region so it fades out smoothly instead of
+              being clipped to a hard square by the default SVG filter region.
+              Glows each element in its own colour. */}
+          <filter id={`lockie-soft-${mood}`} x="-75%" y="-75%" width="250%" height="250%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3.4" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
         {/* Streak skin: aura ring under body */}
@@ -99,7 +109,7 @@ export function Lockie({ mood = "idle", size = 90, skin = "none" }: LockieProps)
             stroke={skin === "halo" ? "oklch(0.92 0.18 90)" : "oklch(0.88 0.2 158)"}
             strokeWidth="0.8"
             opacity="0.55"
-            style={{ filter: "drop-shadow(0 0 6px currentColor)" }}
+            filter={`url(#lockie-soft-${mood})`}
           />
         )}
 
@@ -111,9 +121,7 @@ export function Lockie({ mood = "idle", size = 90, skin = "none" }: LockieProps)
           fill={`url(#lockie-body-${mood})`}
           stroke={palette.ring}
           strokeWidth="1.2"
-          style={{
-            filter: `drop-shadow(0 0 12px ${palette.glow})`,
-          }}
+          filter={`url(#lockie-soft-${mood})`}
         />
         {/* glossy highlight */}
         <ellipse cx="40" cy="38" rx="12" ry="7" fill={`url(#lockie-spec-${mood})`} opacity="0.7" />
@@ -161,7 +169,7 @@ export function Lockie({ mood = "idle", size = 90, skin = "none" }: LockieProps)
 
         {/* Streak skin: crown */}
         {(skin === "crown" || skin === "halo") && (
-          <g style={{ filter: "drop-shadow(0 0 6px oklch(0.9 0.18 85))" }}>
+          <g filter={`url(#lockie-soft-${mood})`}>
             <path
               d="M36 24 L44 16 L50 22 L56 16 L64 24 L62 28 L38 28 Z"
               fill="url(#lockie-crown)"
@@ -185,7 +193,7 @@ export function Lockie({ mood = "idle", size = 90, skin = "none" }: LockieProps)
             stroke="oklch(0.95 0.2 90)"
             strokeWidth="1.6"
             opacity="0.95"
-            style={{ filter: "drop-shadow(0 0 8px oklch(0.92 0.2 85))" }}
+            filter={`url(#lockie-soft-${mood})`}
           />
         )}
       </svg>

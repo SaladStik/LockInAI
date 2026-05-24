@@ -3,10 +3,12 @@ import { Plant } from "@/components/lockin/Plant";
 import { Particles } from "@/components/lockin/Particles";
 import { PrimaryButton, RewardRow } from "@/components/lockin/primitives";
 import type { LockieSkin } from "@/components/lockin/achievements";
+import { rarityForMinutes, type GardenPlant } from "@/lib/garden";
 
 export function CompleteScreen({
   minutes,
   stage,
+  plant,
   broken,
   onAgain,
   onGarden,
@@ -14,6 +16,7 @@ export function CompleteScreen({
 }: {
   minutes: number;
   stage: number;
+  plant: GardenPlant | null;
   broken: boolean;
   onAgain: () => void;
   onGarden: () => void;
@@ -32,7 +35,13 @@ export function CompleteScreen({
         </div>
         <div className="relative flex flex-1 flex-col items-center justify-center gap-3">
           <Lockie mood="sad" size={120} skin={skin} />
-          <Plant stage={Math.max(0, stage - 1)} size={120} health={0.45} />
+          <Plant
+            seed={plant?.id}
+            stage={plant?.stage ?? Math.max(0, stage - 1)}
+            rarity={plant ? rarityForMinutes(plant.minutes) : "common"}
+            size={120}
+            health={0.15}
+          />
         </div>
         <p className="max-w-[280px] text-sm leading-relaxed text-muted-foreground">
           The plant dimmed a little. Come back stronger — they're waiting.
@@ -61,7 +70,13 @@ export function CompleteScreen({
       </div>
       <div className="relative flex flex-1 flex-col items-center justify-center gap-2">
         <Lockie mood="excited" size={110} skin={skin} />
-        <Plant stage={Math.min(4, stage)} size={150} excited />
+        <Plant
+          seed={plant?.id}
+          stage={plant?.stage ?? Math.min(4, stage)}
+          rarity={plant ? rarityForMinutes(plant.minutes) : "common"}
+          size={150}
+          excited
+        />
         <Particles count={18} color="var(--accent-glow)" intensity={1.2} />
       </div>
 
