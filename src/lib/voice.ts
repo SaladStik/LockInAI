@@ -6,8 +6,11 @@
 const STORAGE_KEY_VOICE = "lockin.voiceURI";
 const STORAGE_KEY_MUTED = "lockin.voiceMuted";
 
+/** Persisted preset — resolved to the best installed en-GB female voice. */
+export const BRITISH_LADY_PRESET = "lockin:british-lady";
+
 let cachedVoice: SpeechSynthesisVoice | null = null;
-let selectedVoiceURI: string | null = null;
+let selectedVoiceURI: string | null = BRITISH_LADY_PRESET;
 let muted = false;
 const voiceChangeListeners = new Set<() => void>();
 
@@ -18,11 +21,57 @@ function isBrowser() {
 // Restore persisted preferences on first import in the browser.
 if (isBrowser()) {
   try {
-    selectedVoiceURI = window.localStorage.getItem(STORAGE_KEY_VOICE);
+    const stored = window.localStorage.getItem(STORAGE_KEY_VOICE);
+    selectedVoiceURI = stored ?? BRITISH_LADY_PRESET;
     muted = window.localStorage.getItem(STORAGE_KEY_MUTED) === "1";
   } catch {
     /* localStorage may be unavailable */
   }
+}
+
+/** Known British English female voices across Windows, macOS, and Chromium. */
+const BRITISH_LADY_NAMES = [
+  "Google UK English Female",
+  "Microsoft Hazel - English (Great Britain)",
+  "Microsoft Hazel Desktop - English (Great Britain)",
+  "Microsoft Sonia Online (Natural) - English (United Kingdom)",
+  "Microsoft Libby Online (Natural) - English (Great Britain)",
+  "Microsoft Libby - English (Great Britain)",
+  "Hazel",
+  "Kate",
+  "Serena",
+  "Sonia",
+  "Libby",
+];
+
+function isBritishLadyVoice(v: SpeechSynthesisVoice): boolean {
+  const lang = v.lang.toLowerCase().replace("_", "-");
+  const name = v.name;
+  if (/male|daniel|arthur|ryan|george|brian|thomas|oliver|guy/i.test(name)) return false;
+  if (BRITISH_LADY_NAMES.some((n) => name === n || name.startsWith(n))) return true;
+  if (/female/i.test(name) && (lang.startsWith("en-gb") || /united kingdom|great britain|uk english/i.test(name))) {
+    return true;
+  }
+  if (lang.startsWith("en-gb") && /hazel|sonia|libby|kate|serena|susan|emma|martha|fiona|zira|amy/i.test(name)) {
+    return true;
+  }
+  return false;
+}
+
+export function pickBritishLadyVoice(): SpeechSynthesisVoice | null {
+  if (!isBrowser()) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+
+  for (const name of BRITISH_LADY_NAMES) {
+    const v = voices.find((x) => x.name === name || x.name.startsWith(name));
+    if (v) return v;
+  }
+
+  const lady = voices.find(isBritishLadyVoice);
+  if (lady) return lady;
+
+  return voices.find((v) => v.lang.toLowerCase().replace("_", "-").startsWith("en-gb")) ?? null;
 }
 
 function pickVoice(): SpeechSynthesisVoice | null {
@@ -31,9 +80,14 @@ function pickVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return null;
 
-  if (selectedVoiceURI) {
+  if (selectedVoiceURI && selectedVoiceURI !== BRITISH_LADY_PRESET) {
     const match = voices.find((v) => v.voiceURI === selectedVoiceURI);
     if (match) return (cachedVoice = match);
+  }
+
+  if (!selectedVoiceURI || selectedVoiceURI === BRITISH_LADY_PRESET) {
+    const british = pickBritishLadyVoice();
+    if (british) return (cachedVoice = british);
   }
 
   const preferred = [
@@ -60,13 +114,22 @@ export function getSelectedVoiceURI(): string | null {
   return selectedVoiceURI;
 }
 
+/** Human-readable label for the active voice selection. */
+export function getSelectedVoiceLabel(): string {
+  if (!selectedVoiceURI || selectedVoiceURI === BRITISH_LADY_PRESET) {
+    const v = pickBritishLadyVoice();
+    return v ? `British lady · ${v.name}` : "British lady (recommended)";
+  }
+  const v = listVoices().find((x) => x.voiceURI === selectedVoiceURI);
+  return v?.name ?? "Custom voice";
+}
+
 export function setSelectedVoice(voiceURI: string | null) {
-  selectedVoiceURI = voiceURI;
+  selectedVoiceURI = voiceURI ?? BRITISH_LADY_PRESET;
   cachedVoice = null;
   if (isBrowser()) {
     try {
-      if (voiceURI) window.localStorage.setItem(STORAGE_KEY_VOICE, voiceURI);
-      else window.localStorage.removeItem(STORAGE_KEY_VOICE);
+      window.localStorage.setItem(STORAGE_KEY_VOICE, selectedVoiceURI);
     } catch {
       /* ignore */
     }
@@ -112,8 +175,13 @@ export function speak(text: string, opts: { rate?: number; pitch?: number; force
 export function previewVoice(text: string, voiceURI: string | null) {
   if (!isBrowser()) return;
   const voices = window.speechSynthesis.getVoices();
-  const v = voiceURI ? voices.find((x) => x.voiceURI === voiceURI) ?? null : pickVoice();
-  speakWithVoice(text, v);
+  let v: SpeechSynthesisVoice | null = null;
+  if (!voiceURI || voiceURI === BRITISH_LADY_PRESET) {
+    v = pickBritishLadyVoice();
+  } else {
+    v = voices.find((x) => x.voiceURI === voiceURI) ?? null;
+  }
+  speakWithVoice(text, v ?? pickVoice());
 }
 
 function speakWithVoice(

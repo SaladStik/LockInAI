@@ -48,7 +48,8 @@
     "files": [
       "out/**/*",
       "electron/**/*",
-      "node_modules/get-windows/**/*"
+      "node_modules/get-windows/**/*",
+      "node_modules/ws/**/*"
     ],
     "asarUnpack": [
       "**/node_modules/get-windows/**/*.node"
