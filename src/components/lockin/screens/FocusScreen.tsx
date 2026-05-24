@@ -21,6 +21,7 @@ export function FocusScreen({
   activeApp,
   appDetection,
   onEmergencyExit,
+  onSkip,
   breachCount,
   maxBreaches,
   skin,
@@ -39,6 +40,7 @@ export function FocusScreen({
   activeApp: ActiveAppSnapshot | null;
   appDetection: boolean;
   onEmergencyExit: () => void;
+  onSkip: () => void;
   breachCount: number;
   maxBreaches: number;
   skin: LockieSkin;
@@ -147,6 +149,12 @@ export function FocusScreen({
           className="group relative flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 text-xs uppercase tracking-[0.3em] text-destructive transition hover:bg-destructive/20"
         >
           <AlertTriangle size={14} /> Emergency exit
+        </button>
+        <button
+          onClick={onSkip}
+          className="font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground/60 transition hover:text-primary-glow"
+        >
+          dev · skip timer →
         </button>
       </div>
     </div>

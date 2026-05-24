@@ -7,6 +7,7 @@ export function ConfirmScreen({
   sessionPlantName,
   minutes,
   apps,
+  newPreset = false,
   onLock,
 }: {
   subject: string;
@@ -14,6 +15,7 @@ export function ConfirmScreen({
   sessionPlantName: string;
   minutes: number;
   apps: string[];
+  newPreset?: boolean;
   onLock: () => void;
 }) {
   return (
@@ -22,7 +24,12 @@ export function ConfirmScreen({
         className="glass rounded-2xl p-4"
         style={{ boxShadow: "var(--shadow-glow-accent)" }}
       >
-        <Row label="Subject" value={subject} />
+        <Row label={newPreset ? "New session" : "Session"} value={subject} />
+        {newPreset && (
+          <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-primary-glow">
+            ↳ saved as a reusable preset
+          </p>
+        )}
         <div className="my-3 h-px bg-border" />
         <Row
           label="Plant"

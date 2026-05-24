@@ -82,6 +82,19 @@ export function LockInPopup() {
     setSites([...session.default_sites]);
   }
 
+  // Begin building a brand-new custom session: name it, then pick its apps/sites
+  // through the normal flow. It's saved to the DB when the user locks in.
+  function startNewCustomSession() {
+    setSessionKey("new");
+    setSubject("");
+    setApps(["Chrome"]); // a starter so the preset is never empty
+    setSites([]);
+  }
+
+  function cancelNewCustomSession() {
+    selectBuiltInSubject("Coding");
+  }
+
   async function handleRemoveCustomSession(id: number) {
     if (sessionKey === `custom:${id}`) {
       selectBuiltInSubject("Coding");
@@ -215,6 +228,16 @@ export function LockInPopup() {
   }
 
   function startSession() {
+    // Building a new custom session — persist it as a reusable preset. The DB
+    // requires at least one allowed app, so fall back to Chrome, and surface
+    // any save failure instead of swallowing it.
+    if (sessionKey === "new" && subject.trim()) {
+      addCustomSession({
+        name: subject.trim(),
+        default_apps: apps.length ? apps : ["Chrome"],
+        default_sites: sites,
+      }).catch((e) => console.error("[custom-session] save failed:", e));
+    }
     if (!activePlantName) {
       setActivePlantName(resolvePlantName(plantName, garden.map((p) => p.name)));
     }
@@ -387,18 +410,16 @@ export function LockInPopup() {
             {screen === "subject" && (
               <SubjectScreen
                 subject={subject}
+                setSubject={setSubject}
                 sessionKey={sessionKey}
                 plantName={plantName}
                 setPlantName={setPlantName}
                 customSessions={customSessions}
-                customApps={customApps}
-                detectedAppName={activeApp?.app ?? null}
                 onSelectBuiltIn={selectBuiltInSubject}
                 onSelectCustom={selectCustomSession}
-                onAddCustomSession={addCustomSession}
                 onRemoveCustomSession={handleRemoveCustomSession}
-                onAddCustomApp={addCustomApp}
-                onRemoveCustomApp={removeCustomApp}
+                onStartNew={startNewCustomSession}
+                onCancelNew={cancelNewCustomSession}
                 onNext={() => setScreen("time")}
               />
             )}
@@ -441,6 +462,7 @@ export function LockInPopup() {
                 sessionPlantName={activePlantName}
                 minutes={minutes}
                 apps={apps}
+                newPreset={sessionKey === "new"}
                 onLock={startSession}
               />
             )}
@@ -460,6 +482,7 @@ export function LockInPopup() {
                 activeApp={activeApp}
                 appDetection={hasNativeAppDetection}
                 onEmergencyExit={emergencyExitNow}
+                onSkip={() => setSecondsLeft(0)}
                 breachCount={breachCount}
                 maxBreaches={MAX_BREACHES}
                 skin={skin}

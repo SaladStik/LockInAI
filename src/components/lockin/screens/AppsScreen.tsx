@@ -170,7 +170,10 @@ export function AppsScreen({
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         Anything outside this list will gently nudge your plant.
       </p>
-      <PrimaryButton onClick={onNext} className="mt-auto">
+      {apps.length === 0 && (
+        <p className="text-[10px] text-warning/80">Pick at least one allowed app to continue.</p>
+      )}
+      <PrimaryButton onClick={onNext} disabled={apps.length === 0} className="mt-auto">
         Continue <ChevronRight size={16} />
       </PrimaryButton>
     </SetupShell>
