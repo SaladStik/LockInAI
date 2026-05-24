@@ -1,4 +1,5 @@
 export type Screen =
+  | "onboarding"
   | "welcome"
   | "subject"
   | "time"

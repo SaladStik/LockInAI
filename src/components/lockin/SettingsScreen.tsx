@@ -175,10 +175,10 @@ export function SettingsScreen({
         </div>
 
         <div className="mt-4 border-t border-border/40 pt-4">
-          <div className="text-[11px] font-medium text-foreground">Clear garden</div>
+          <div className="text-[11px] font-medium text-foreground">Reset the app</div>
           <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-            Clears your garden, custom study sessions, custom apps, and custom websites. Setup
-            choices return to defaults.
+            Wipes your garden, custom sessions, custom apps & sites, voice
+            preference, and the onboarding flag. Lockie hatches all over again.
           </p>
           {resetError && (
             <p className="mt-2 text-[10px] text-destructive">{resetError}</p>
@@ -189,7 +189,7 @@ export function SettingsScreen({
             disabled={resetting}
             className="mt-3 w-full rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-destructive transition hover:bg-destructive/20 disabled:opacity-50"
           >
-            {resetting ? "Clearing…" : "Clear Garden"}
+            {resetting ? "Resetting…" : "Reset the app"}
           </button>
         </div>
       </div>
@@ -204,7 +204,7 @@ export function SettingsScreen({
           >
             <button
               type="button"
-              aria-label="Cancel clear garden"
+              aria-label="Cancel reset"
               onClick={closeClearConfirm}
               disabled={resetting}
               className="absolute inset-0 bg-background/75 backdrop-blur-sm"
@@ -221,11 +221,12 @@ export function SettingsScreen({
               }}
             >
               <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-primary-glow">
-                Clear garden
+                Reset the app
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-                This permanently deletes your garden, custom study sessions, custom apps, and custom
-                websites. Setup choices return to defaults.
+                This wipes your garden, custom sessions, custom apps & sites,
+                voice preference, and the onboarding flag. Lockie hatches all
+                over again.
               </p>
               <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.2em] text-warning">
                 This cannot be undone
@@ -246,7 +247,7 @@ export function SettingsScreen({
                   disabled={resetting}
                   className="flex-1 rounded-lg border border-destructive/40 bg-destructive/15 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-destructive transition hover:bg-destructive/25 disabled:opacity-50"
                 >
-                  {resetting ? "Clearing…" : "Clear Garden"}
+                  {resetting ? "Resetting…" : "Reset the app"}
                 </button>
               </div>
             </motion.div>

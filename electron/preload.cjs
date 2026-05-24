@@ -1,5 +1,14 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
+// Pull the full prefs map synchronously *before* renderer scripts run so the
+// renderer can use sync getters (mirrors the localStorage feel we replaced).
+let prefsCache;
+try {
+  prefsCache = ipcRenderer.sendSync("prefs:bootstrap") || {};
+} catch {
+  prefsCache = {};
+}
+
 contextBridge.exposeInMainWorld("electronAPI", {
   platform: process.platform,
   windowClose: () => ipcRenderer.send("window:close"),
@@ -52,4 +61,25 @@ contextBridge.exposeInMainWorld("electronAPI", {
     add: (payload) => ipcRenderer.invoke("custom-sessions:add", payload),
     remove: (id) => ipcRenderer.invoke("custom-sessions:remove", id),
   },
+  extension: {
+    status: () => ipcRenderer.invoke("extension:status"),
+    openInstall: () => ipcRenderer.invoke("extension:open-install"),
+  },
+  prefs: {
+    get(key) {
+      return prefsCache[key] ?? null;
+    },
+    async set(key, value) {
+      // Update the local cache immediately so subsequent sync reads see the
+      // new value without waiting for the IPC round-trip to complete.
+      if (value === null || value === undefined) delete prefsCache[key];
+      else prefsCache[key] = String(value);
+      try {
+        await ipcRenderer.invoke("prefs:set", key, value);
+      } catch (e) {
+        console.error("[prefs] set failed:", e?.message ?? e);
+      }
+    },
+  },
+  resetApp: () => ipcRenderer.invoke("app:reset"),
 });

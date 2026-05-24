@@ -106,6 +106,15 @@ declare global {
         }) => Promise<CustomSession>;
         remove: (id: number) => Promise<boolean>;
       };
+      extension: {
+        status: () => Promise<{ connected: boolean }>;
+        openInstall: () => Promise<{ extensionPath: string | null }>;
+      };
+      prefs: {
+        get: (key: string) => string | null;
+        set: (key: string, value: string | null) => Promise<void>;
+      };
+      resetApp: () => Promise<boolean>;
     };
   }
 }
