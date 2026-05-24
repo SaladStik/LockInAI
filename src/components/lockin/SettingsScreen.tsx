@@ -109,7 +109,7 @@ export function SettingsScreen({
         </p>
       </div>
 
-      <div className="-mx-2 flex-1 space-y-1.5 overflow-y-auto px-2 pb-1">
+      <div className="scroll-hidden -mx-2 flex-1 space-y-1.5 overflow-y-auto px-2 pb-1">
         <VoiceRow
           name="British lady"
           lang={

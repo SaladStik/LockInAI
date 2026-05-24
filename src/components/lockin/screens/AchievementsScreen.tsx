@@ -60,7 +60,7 @@ export function AchievementsScreen({
       </div>
 
       {/* Grid */}
-      <div className="-mx-2 flex-1 overflow-y-auto px-2 pb-1">
+      <div className="scroll-hidden -mx-2 flex-1 overflow-y-auto px-2 pb-1">
         <div className="grid grid-cols-2 gap-2">
           {items.map((a) => (
             <AchievementCard key={a.id} a={a} />
