@@ -175,6 +175,12 @@ function addGardenPlant(plant) {
   return { id, name, stage, status, days, subject };
 }
 
+function clearGardenPlants() {
+  if (!db) throw new Error("db not initialized");
+  db.prepare("DELETE FROM garden_plants").run();
+  return true;
+}
+
 module.exports = {
   init,
   listCustomApps,
@@ -185,4 +191,5 @@ module.exports = {
   removeCustomSite,
   listGardenPlants,
   addGardenPlant,
+  clearGardenPlants,
 };

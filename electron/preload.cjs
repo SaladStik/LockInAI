@@ -39,5 +39,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   garden: {
     list: () => ipcRenderer.invoke("garden:list"),
     add: (plant) => ipcRenderer.invoke("garden:add", plant),
+    clear: () => ipcRenderer.invoke("garden:clear"),
   },
 });
