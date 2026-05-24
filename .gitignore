@@ -6,11 +6,18 @@ node_modules/
 # Build output
 dist/
 dist-ssr/
-build/
 release/
 out/
 .next/
 next-env.d.ts
+
+# build/ holds the app icon source assets (icon.ico/.icns/.png), which the
+# release build needs — keep them tracked. Ignore only generated artifacts.
+build/*
+!build/icon.ico
+!build/icon.icns
+!build/icon.png
+!build/icon-master.svg
 
 # Logs
 *.log

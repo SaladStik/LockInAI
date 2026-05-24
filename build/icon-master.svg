@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <!-- LOCK//IN AI master app icon — Lockie the companion orb.
+       Rounded squircle tile; rasterized to favicon / app / extension sizes. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="34%" r="82%">
+      <stop offset="0%" stop-color="#1c2e4f"/>
+      <stop offset="100%" stop-color="#0a0f1c"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="40%" cy="33%" r="72%">
+      <stop offset="0%" stop-color="#e6f5ff"/>
+      <stop offset="56%" stop-color="#3fb9ec"/>
+      <stop offset="100%" stop-color="#234f97"/>
+    </radialGradient>
+    <radialGradient id="spec" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="180" height="180" rx="40" fill="url(#bg)"/>
+
+  <!-- cyan glow halo -->
+  <circle cx="90" cy="95" r="60" fill="#46c7f0" opacity="0.30"/>
+
+  <!-- antenna -->
+  <line x1="90" y1="42" x2="90" y2="26" stroke="#8fe2ff" stroke-width="4.6" stroke-linecap="round"/>
+  <circle cx="90" cy="23" r="5.6" fill="#cdeeff"/>
+
+  <!-- body -->
+  <circle cx="90" cy="95" r="51" fill="url(#orb)" stroke="#8fe2ff" stroke-width="3"/>
+  <ellipse cx="72" cy="73" rx="20" ry="12" fill="url(#spec)"/>
+
+  <!-- eyes -->
+  <circle cx="74" cy="95" r="7.8" fill="#0b1322"/>
+  <circle cx="76.3" cy="92.3" r="2.6" fill="#ffffff"/>
+  <circle cx="106" cy="95" r="7.8" fill="#0b1322"/>
+  <circle cx="108.3" cy="92.3" r="2.6" fill="#ffffff"/>
+
+  <!-- smile -->
+  <path d="M76 117 Q90 134 106 117" stroke="#0b1322" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+</svg>
