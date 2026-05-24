@@ -51,6 +51,13 @@
       "node_modules/get-windows/**/*",
       "node_modules/ws/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "extension",
+        "to": "extension",
+        "filter": ["**/*"]
+      }
+    ],
     "asarUnpack": [
       "**/node_modules/get-windows/**/*.node"
     ],

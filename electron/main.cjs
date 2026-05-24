@@ -175,27 +175,50 @@ ipcMain.handle("extension:status", () => ({
   connected: extBridge.isConnected ? extBridge.isConnected() : false,
 }));
 
-ipcMain.handle("extension:open-install", async () => {
-  // In dev the unpacked extension lives at <repo>/extension. In a packaged app
-  // it ships under resources/extension (declared via extraResources in
-  // electron-builder config — see package.json "build.extraResources").
+/**
+ * Locate the bundled extension. In dev it sits next to the repo; in a
+ * packaged build electron-builder writes it to Contents/Resources/extension/
+ * (via the "extraResources" entry in package.json).
+ */
+function findBundledExtension() {
   const candidates = [
     path.join(__dirname, "..", "extension"),
     path.join(process.resourcesPath ?? "", "extension"),
   ];
-  let extensionPath = null;
   for (const p of candidates) {
     try {
-      // Avoid pulling fs at the top; require lazily.
-      if (require("node:fs").existsSync(path.join(p, "manifest.json"))) {
-        extensionPath = p;
-        break;
-      }
+      if (fs.existsSync(path.join(p, "manifest.json"))) return p;
     } catch {
       /* ignore */
     }
   }
-  // Reveal the extension folder so the user can drag it onto the extensions page.
+  return null;
+}
+
+/**
+ * Copy the bundled extension into a stable, user-readable location under
+ * userData. Inside the .app bundle's Resources/ Finder can technically reach
+ * the folder, but the "Load unpacked" dialog can't traverse package contents
+ * by default — a real user-data path is much friendlier.
+ */
+function ensureUserExtension() {
+  const src = findBundledExtension();
+  if (!src) return null;
+  const dst = path.join(app.getPath("userData"), "extension");
+  try {
+    fs.mkdirSync(dst, { recursive: true });
+    fs.cpSync(src, dst, { recursive: true, force: true, errorOnExist: false });
+  } catch (e) {
+    console.error("[extension] copy to userData failed:", e?.message ?? e);
+    return src; // fall back to the bundled path so we don't break the flow
+  }
+  return dst;
+}
+
+ipcMain.handle("extension:open-install", async () => {
+  const extensionPath = ensureUserExtension();
+  // Reveal the extension folder so the user can pick it from chrome's
+  // "Load unpacked" dialog (or drag it directly onto the extensions page).
   if (extensionPath) shell.showItemInFolder(extensionPath);
   // Open our install page in the user's ACTUAL default browser — `chrome://`
   // URLs only resolve in Chromium browsers, but `http://` always lands in the
@@ -232,6 +255,14 @@ ipcMain.on("open:screen-recording-settings", () => {
 
 app.whenReady().then(async () => {
   db.init(app.getPath("userData"));
+
+  // Pre-stage the bundled extension into userData so the "open install" path
+  // is instant and the folder is ready for `showItemInFolder` immediately.
+  try {
+    ensureUserExtension();
+  } catch (e) {
+    console.error("[extension] pre-stage failed:", e?.message ?? e);
+  }
 
   // Show Lockie on the macOS dock in dev (packaged builds use the bundle icon).
   if (isDev && appIcon && process.platform === "darwin") {
