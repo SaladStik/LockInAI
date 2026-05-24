@@ -64,7 +64,11 @@
     "mac": {
       "target": "dmg",
       "category": "public.app-category.productivity",
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "extendInfo": {
+        "CFBundleName": "LOCKIN AI",
+        "CFBundleDisplayName": "LOCK//IN AI"
+      }
     },
     "win": {
       "target": "nsis",

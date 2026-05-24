@@ -1,11 +1,12 @@
-# LOCK//IN AI — Landing site
+# LOCK//IN AI — Landing Site
 
-Marketing/download site for LOCK//IN AI. Built with Next.js (App Router) and
-**statically exported** so it drops straight onto Cloudflare Pages.
+> **Focus that grows.** The marketing & download site for [LOCK//IN AI](../README.md).
+> Built with Next.js (App Router) and **statically exported** so it drops straight
+> onto Cloudflare Pages.
 
-Matches the app's "new tab" styling: cozy-cyberpunk dark theme, bio-luminescent
-leaf green + plasma cyan, aurora glow, glass panels, and the floating **Lockie**
-companion (`components/Lockie.tsx`).
+**Aesthetic:** matches the app's "new tab" styling — cozy-cyberpunk dark theme,
+bio-luminescent leaf green + plasma cyan, aurora glow, glass panels, and the
+floating **Lockie** companion (`components/Lockie.tsx`).
 
 ## Develop locally
 

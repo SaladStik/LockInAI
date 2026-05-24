@@ -33,9 +33,11 @@ process.title = APP_NAME;
 // into the two-level `LOCK/IN AI/`. Pin the data dir to a plain folder so the
 // SQLite DB + Electron cache live somewhere sensible, while the *display* name
 // remains "LOCK//IN AI" everywhere the user sees it.
+// In dev we use a separate folder so iterating doesn't pollute the path a
+// packaged install would read — testing a release "fresh install" stays clean.
 {
   const base = app.getPath("appData");
-  app.setPath("userData", path.join(base, "LockInAI"));
+  app.setPath("userData", path.join(base, isDev ? "LockInAI-dev" : "LockInAI"));
 }
 
 // Lockie app icon (used for the window/dock in dev; packaged builds get their

@@ -1,10 +1,13 @@
-# LockInAI
+# LOCK//IN AI
 
-LockInAI is a desktop focus companion designed to help users stay focused, avoid digital distractions, and build better work habits through structure, enforcement, and a calm visual reward system.
+> **Focus that grows.**
+> A desktop focus companion that helps you lock into the work you actually planned to do — and rewards every session with a living digital garden.
 
-It is built as a small Electron desktop app with a focused 400×680 window. The app is meant to feel less like a strict productivity tool and more like a small focus world that users enter when they are ready to work. Instead of only using timers or blocklists, LockInAI combines focus sessions, allowed apps, allowed websites, browser protection, a companion character, voice feedback, achievements, and a growing digital garden.
+**Aesthetic:** cozy-cyberpunk dark theme · bio-luminescent leaf green + plasma cyan · aurora glow · glass panels · the floating **Lockie** companion.
 
-The goal of LockInAI is simple: help users lock into the task they actually planned to do.
+LOCK//IN AI is a small Electron desktop app in a focused 400×680 window. It's meant to feel less like a strict productivity tool and more like a calm focus world you step into when you're ready to work. Instead of relying on timers or blocklists alone, it combines focus sessions, allowed apps and websites, browser protection, the Lockie companion, voice cues, achievements, and a growing garden into one experience.
+
+The goal is simple: help you lock into the task you actually planned to do.
 
 ---
 
@@ -25,752 +28,389 @@ The goal of LockInAI is simple: help users lock into the task they actually plan
 - [Lockie](#lockie)
 - [Voice Cues](#voice-cues)
 - [Settings](#settings)
+- [Interface Details](#interface-details)
 - [Platform Support](#platform-support)
 - [Tech Stack](#tech-stack)
 - [How It Works](#how-it-works)
 - [Who This App Is For](#who-this-app-is-for)
 - [Project Purpose](#project-purpose)
 - [Future Ideas](#future-ideas)
+- [Repository Layout](#repository-layout)
 
 ---
 
 ## Overview
 
-LockInAI is made for people who sit down with good intentions but quickly get pulled into distractions.
+LOCK//IN AI is made for people who sit down with good intentions but quickly get pulled into distractions.
 
-A user might open their laptop to write an essay, study for an exam, code a project, or read course material. Then they open Chrome to check one small thing. That turns into a long chain of tabs, unrelated videos, social media, or random research. By the time they notice, a large part of their work session is gone.
+You open your laptop to write an essay, study for an exam, or ship a project. Then you open Chrome to check "one small thing" — and that turns into a chain of tabs, unrelated videos, and social media. By the time you notice, half your session is gone.
 
-LockInAI helps prevent that by asking the user to define their session before starting.
-
-The user chooses:
-
-- What they are working on
-- How long they want to focus
-- Which apps are allowed
-- Which websites are allowed
-- What kind of session they are entering
-
-Once the session begins, LockInAI protects the user’s attention by monitoring their active app or browser tab and reacting when they leave the allowed focus environment.
+LOCK//IN AI prevents that by asking you to define your session before it starts: what you're working on, how long you want to focus, which apps are allowed, which websites are allowed, and what kind of session you're entering. Once the session begins, it protects your attention by monitoring your active app or browser tab and reacting when you leave the allowed focus environment.
 
 ---
 
 ## The Problem
 
-The main problem LockInAI solves is distraction during computer-based work.
+The core problem LOCK//IN AI solves is distraction during computer-based work.
 
-Most people do not struggle because they have no goals. They struggle because their work environment is full of easy exits. A student can start on an assignment and end up on YouTube. A developer can open Stack Overflow and end up with ten unrelated tabs. A writer can open a research article and end up reading about something completely unrelated.
+Most people don't struggle because they lack goals — they struggle because their work environment is full of easy exits. A student starts an assignment and ends up on YouTube. A developer opens Stack Overflow and ends up with ten unrelated tabs. The problem isn't motivation; it's that **intention without structure disappears quickly.**
 
-The problem is not always motivation.
-
-The problem is that intention without structure disappears quickly.
-
-Common issues LockInAI is designed to solve include:
+Common issues LOCK//IN AI is designed to solve:
 
 - Getting distracted by websites during study sessions
-- Opening apps that are unrelated to the current task
+- Opening apps unrelated to the current task
 - Starting work without clearly defining the goal
-- Losing track of time while browsing
-- Falling into tab spirals
-- Using harsh blockers that feel annoying or punishing
+- Losing track of time while browsing and falling into tab spirals
+- Harsh blockers that feel annoying or punishing
 - Having no visible record of completed focus sessions
 - Struggling to build consistent focus habits over time
 
-Many productivity tools solve this problem by being strict, cold, or frustrating. LockInAI tries to solve it in a warmer way. It still enforces boundaries, but it does so with a friendly interface, a companion character, and a garden that grows as the user succeeds.
+Many productivity tools answer this by being strict, cold, or frustrating. LOCK//IN AI takes a warmer approach. It still enforces boundaries — but it does so with a friendly interface, the Lockie companion, and a garden that grows as you succeed.
 
 ---
 
 ## The Solution
 
-LockInAI creates a structured focus environment before the session begins.
+LOCK//IN AI builds a structured focus environment *before* the session begins.
 
-Instead of letting the user vaguely say, “I am going to work,” the app asks them to make specific decisions.
+Instead of vaguely deciding "I'm going to work," you make specific commitments: the subject or task you're locking into, how long the session lasts, which apps and websites are allowed, and whether to load a saved preset. This setup creates a small commitment before the timer starts.
 
-The user must decide:
-
-- What subject or task they are locking into
-- How long the session should last
-- Which apps are allowed
-- Which websites are allowed
-- Whether they want to use a saved preset
-
-This setup process creates a small commitment before the timer starts.
-
-Once the session begins, LockInAI acts as a gentle guardrail. If the user leaves their allowed apps or sites, the app notices and reacts. The user is guided back to the correct app or tab. If they break focus too many times, the session fails.
-
-This creates a balance between freedom and accountability.
-
-The app is not meant to shame the user. It is meant to make the right path easier than the wrong one.
+Once the session is running, LOCK//IN AI acts as a gentle guardrail. If you leave your allowed apps or sites, it notices and guides you back. Break focus too many times and the session fails. The result is a balance between freedom and accountability — the app isn't here to shame you, it's here to make the right path easier than the wrong one.
 
 ---
 
 ## Core Concept
 
-LockInAI is built around the idea that focus should feel like something you grow.
+LOCK//IN AI is built around the idea that **focus should feel like something you grow.**
 
-Instead of treating every session as just a timer, the app turns each completed session into a plant in a digital garden.
+Instead of treating each session as just a timer, the app turns every completed session into a plant in a digital garden. A successful session adds life to the garden; a failed session adds a dead plant. Over time, the garden becomes a visual record of your focus history — proof that you've shown up before and can do it again.
 
-A successful session adds life to the garden.
-
-A failed session adds a dead plant.
-
-Over time, the garden becomes a visual record of the user’s focus history. It shows that the user has shown up before and can do it again.
-
-This makes focus feel less invisible. The user can actually see their progress.
+This makes focus less invisible. You can actually *see* your progress.
 
 ---
 
 ## Main Features
 
-LockInAI includes several connected systems:
+LOCK//IN AI is a set of connected systems, all serving the same goal — staying focused without making productivity feel miserable:
 
-- Focus setup flow
-- Timed focus sessions
-- Allowed app selection
-- Allowed website selection
-- Desktop app monitoring
-- Browser tab enforcement
-- Companion browser extension
-- Custom blocked page
-- Search result filtering
-- Digital garden
-- Procedurally generated plants
-- Failed session tracking
+- Focus setup flow and timed focus sessions
+- Allowed app and allowed website selection
+- Desktop active-window monitoring
+- Browser tab enforcement via a companion extension
+- Custom blocked page and search result filtering
+- A digital garden with procedurally generated plants
+- Failed-session tracking (dead plants)
 - Custom focus presets
-- XP and achievement system
-- Lockie companion character
-- Voice feedback
-- Custom settings
-- Cross-platform desktop support
-
-Each feature supports the same goal: helping the user stay focused without making productivity feel miserable.
+- XP and an achievement system
+- The Lockie companion character (with cosmetic rewards)
+- Voice cues for key moments
+- Customizable settings
+- Cross-platform desktop support (Windows, macOS, Linux)
 
 ---
 
 ## Setup Ritual
 
-Before the user starts a focus session, LockInAI walks them through a five-step setup ritual.
+Before a session starts, LOCK//IN AI walks you through a five-step setup ritual that makes you define what focus means for *this* session.
 
-This setup is important because it makes the user define what focus means for that specific session.
+### Step 1 — Choose what you're locking into
 
-### Step 1: Choose What You Are Locking Into
+Pick a subject or focus type (Math, Coding, Reading, Writing, Exam Prep) or load a saved preset (Thesis, Movie Night, Language Lab, Film Studies, Essay Writing, Programming Sprint). Each preset carries its own default apps and websites. You can also name the plant you're growing — leave it blank and the app generates one for you.
 
-The user begins by choosing a subject or focus type.
+### Step 2 — Choose the session length
 
-Examples include:
+Set how long you want to focus, from **5 to 120 minutes**, with the slider snapping to five-minute increments. The plant preview reacts to the length: longer sessions preview a more developed plant, visually connecting time with growth.
 
-- Math
-- Coding
-- Reading
-- Writing
-- Exam Prep
+### Step 3 — Choose allowed apps
 
-The user can also choose a custom preset they have saved before.
+Select which desktop apps are allowed (Chrome, VS Code, Notion, YouTube, Netflix, PDF viewers, Figma, Spotify, and more). For anything not listed, custom app detection makes it easy:
 
-Example presets could include:
-
-- Thesis
-- Movie Night
-- Language Lab
-- Film Studies
-- Essay Writing
-- Programming Sprint
-
-Each preset can have its own default apps and websites.
-
-The user can also name the plant they are growing during the session. If they leave the name blank, the app can generate one automatically.
-
----
-
-### Step 2: Choose the Session Length
-
-The user chooses how long they want to focus.
-
-The session length can range from:
-
-- 5 minutes
-- Up to 120 minutes
-
-The slider snaps to five-minute increments.
-
-The plant preview reacts to the length of the session. Longer sessions can show a more developed plant preview. This visually connects time with growth and gives the user a sense that a longer session can lead to a stronger reward.
-
----
-
-### Step 3: Choose Allowed Apps
-
-The user selects which desktop applications are allowed during the session.
-
-Examples of allowed apps include:
-
-- Chrome
-- VS Code
-- Notion
-- YouTube
-- Netflix
-- PDF viewers
-- Figma
-- Spotify
-
-The app also supports custom app detection.
-
-If the user needs an app that is not already listed, they can:
-
-1. Click Add
-2. Switch to the app they want to allow
-3. Return to LockInAI
-4. Let LockInAI detect the app
+1. Click **Add**
+2. Switch to the app you want to allow
+3. Return to LOCK//IN AI
+4. Let it detect the app
 5. Save it as a custom allowed app
 
-This makes the app easier to use because the user does not need to manually type process names or search through complicated settings.
+No manually typing process names or digging through settings.
 
----
+### Step 4 — Choose allowed websites
 
-### Step 4: Choose Allowed Websites
+Select which websites are allowed (ChatGPT, Claude, GitHub, Stack Overflow, MDN, YouTube). You can add a site manually or detect it from your current browser tab. Google, Wikipedia, and new-tab pages stay available so you're never blocked from basic navigation — the browser stays useful without becoming a distraction trap.
 
-The user selects which websites are allowed during the focus session.
+### Step 5 — Confirm the session
 
-Built-in website options can include:
-
-- ChatGPT
-- Claude
-- GitHub
-- Stack Overflow
-- MDN
-- YouTube
-
-The user can also add a website manually or detect the website from their current browser tab.
-
-Google and Wikipedia can remain always available, along with new-tab pages, so users are not completely blocked from basic navigation.
-
-This makes the browser useful without letting it become a distraction trap.
-
----
-
-### Step 5: Confirm the Session
-
-Before the session starts, the user sees a summary screen.
-
-The summary shows:
-
-- Subject
-- Plant name
-- Session duration
-- Allowed apps
-- Allowed websites
-
-Once the user confirms, they press **Lock in** and the session begins.
-
-At this point, the focus environment becomes active.
+A summary screen shows your subject, plant name, duration, allowed apps, and allowed websites. Press **Lock in** and the focus environment goes active.
 
 ---
 
 ## Focus Sessions
 
-During a focus session, LockInAI becomes a calm command center.
+During a session, LOCK//IN AI becomes a calm command center. The focus screen shows:
 
-The focus screen includes:
-
-- A circular countdown timer
-- A glowing progress ring
-- Current subject
-- Plant name
-- Streak
-- XP
+- A circular countdown timer with a glowing progress ring
+- Current subject and plant name
+- Streak and XP
 - Lockie in focused mode
 - Allowed apps displayed as chips
 
-The session is designed to keep the user aware of the agreement they made at the start.
-
-The app does not just run a timer. It actively checks whether the user is staying inside their allowed focus environment.
-
-If the user stays focused until the timer ends, the session is completed successfully and a plant is added to the garden.
-
-If the user breaks focus too many times, the session ends as an emergency exit and a dead plant is added instead.
+The app doesn't just run a timer — it actively checks whether you're staying inside your allowed focus environment. Stay focused until the timer ends and the session completes successfully, adding a plant to your garden. Break focus too many times and it ends as an emergency exit, adding a dead plant instead.
 
 ---
 
 ## App Enforcement
 
-LockInAI monitors the active desktop window during a session.
+LOCK//IN AI monitors the active desktop window during a session, checking roughly every 800 milliseconds on Windows, macOS, and Linux.
 
-On desktop platforms such as Windows, macOS, and Linux, the app can check the active window roughly every 800 milliseconds.
+If you switch to an app outside your allowed list, the app reacts — it can:
 
-If the user switches to an app outside their allowed list, LockInAI reacts.
+- Snap you back to the last allowed app
+- Show a breach overlay
+- Change Lockie's expression
+- Dim the plant
+- Play a voice cue
+- Count the breach against you
 
-Possible reactions include:
-
-- Snapping the user back to the last allowed app
-- Showing a breach overlay
-- Changing Lockie’s expression
-- Dimming the plant
-- Playing a voice cue
-- Counting the breach against the user
-
-The user gets three breaches before the session fails.
-
-This system is designed to allow small mistakes but prevent repeated drifting.
-
-The app also includes grace for the user’s starting point. Whatever app or tab the user was already in when they locked in does not immediately count as a violation. This makes the app feel more fair and less frustrating.
+You get **three breaches** before the session fails — enough to allow small mistakes but not repeated drifting. Whatever app or tab you were already in when you locked in won't immediately count as a violation, which keeps the experience fair rather than frustrating.
 
 ---
 
 ## Browser Enforcement
 
-The browser is one of the biggest sources of distraction, so LockInAI includes deeper browser protection.
+The browser is the biggest source of distraction, so LOCK//IN AI includes deeper browser protection through a companion extension that connects to the desktop app over a local WebSocket. While a session is active, the extension helps enforce your allowed website list.
 
-The app can work with a companion browser extension that connects to the desktop app over a local WebSocket.
+### Blocked website redirects
 
-During an active focus session, the browser extension can help enforce the allowed website list.
+If you open a site that isn't allowed, the extension redirects the tab to a local blocked page. It isn't a plain warning screen — it's styled like a small sanctuary that matches the app, with a clock, a greeting, a search bar, shortcuts to allowed sites, and the LOCK//IN AI aesthetic. The goal is to guide you back, not to feel hostile.
 
-### Blocked Website Redirects
+### Search result filtering
 
-If the user opens a website that is not allowed, the extension can redirect the tab to a local blocked page.
+On search pages like Google or Bing, links to blocked websites can be hidden or replaced with a LOCK//IN AI badge — so you don't accidentally click into a distraction while searching for something useful.
 
-This page is not just a plain warning screen. It is styled like a small sanctuary that matches the app.
+### Google search styling
 
-The blocked page can include:
+Google search pages can be re-skinned to match the dark aurora aesthetic, keeping the browser visually connected to the focus session. The app can also optionally hide Gemini AI Overviews so search pages stay cleaner.
 
-- A clock
-- A greeting
-- A search bar
-- Shortcuts to allowed sites
-- LockInAI styling
-- A calm focus-based design
+### Windows browser fallbacks
 
-The goal is to guide the user back instead of making the experience feel hostile.
-
----
-
-### Search Result Filtering
-
-LockInAI can also help reduce distraction from search engines.
-
-On search pages such as Google or Bing, links to blocked websites can be hidden or replaced with a LockInAI badge.
-
-This helps stop the user from accidentally clicking into distracting websites while searching for something useful.
-
----
-
-### Google Search Styling
-
-Google search pages can also be re-skinned to match LockInAI’s dark aurora aesthetic.
-
-This keeps the browser environment visually connected to the focus session.
-
-The app can also optionally hide Gemini AI Overviews so search pages remain cleaner and less distracting.
-
----
-
-### Windows Browser Fallbacks
-
-On Windows, even without the browser extension, fallback mechanisms can try to steer tabs back through UI automation.
-
-This gives the app another layer of protection when browser-level enforcement is not available.
+On Windows, even without the extension, fallback mechanisms can steer tabs back through UI automation — an extra layer of protection when browser-level enforcement isn't available.
 
 ---
 
 ## The Garden System
 
-The garden is one of the most important parts of LockInAI.
+The garden is one of the most important parts of LOCK//IN AI. Every completed session adds a plant, generated from the session itself and visually varied by length or quality:
 
-Every completed session adds a plant to the user’s garden.
+- A shorter session might grow a common plant.
+- A longer session might grow a rarer one.
+- A very long session could grow something legendary or celestial, with glow and sparkles.
 
-Each plant is generated from the session and can be visually different based on the length or quality of the focus session.
+This makes each completed session feel like it leaves a lasting result.
 
-A shorter session might grow a common plant.
+### Dead plants
 
-A longer session might grow a rarer plant.
+Fail a session by breaching too many times and a dead plant is added. It isn't there to shame you — it's an honest record that the session didn't hold. Failure is part of the focus journey, and the garden shows both success and struggle: where you stayed consistent, where you struggled, how many sessions you completed or lost, and how your habits changed over time.
 
-A very long session could grow something legendary or celestial, with glow effects and sparkles.
+### Garden view
 
-This makes each completed focus session feel like it has a lasting result.
-
----
-
-### Dead Plants
-
-If the user fails a session by breaching too many times, the app adds a dead plant.
-
-The dead plant is not meant to shame the user. It is an honest record that the session did not hold.
-
-This matters because failure is still part of the focus journey. The garden shows both success and struggle.
-
-The user can look back and see:
-
-- Where they stayed consistent
-- Where they struggled
-- How many sessions they completed
-- How many sessions they lost
-- How their focus habits changed over time
-
----
-
-### Garden View
-
-The garden is shown as a horizontal scrolling forest.
-
-Lockie walks along a winding path through the plants.
-
-Lockie’s mood changes based on the plants around him.
-
-He may appear happier near living plants and more somber near dead ones.
-
-Garden stats can show:
-
-- Alive plants
-- Lost plants
-- Total plants
-
-Over time, the garden becomes a visual autobiography of the user’s attention.
-
-It becomes proof that they showed up.
+The garden is a horizontal scrolling forest. Lockie walks along a winding path through the plants, and his mood shifts with his surroundings — happier near living plants, more somber near dead ones. Garden stats show alive plants, lost plants, and total plants. Over time the garden becomes a visual autobiography of your attention — proof that you showed up.
 
 ---
 
 ## Custom Presets
 
-LockInAI supports custom presets for different kinds of work.
+Not every focus session needs the same tools, so LOCK//IN AI supports custom presets. For example:
 
-This matters because not every focus session needs the same tools.
+- **Coding** — VS Code, Chrome, GitHub, Stack Overflow, MDN, ChatGPT
+- **Essay** — Chrome, Notion, Google Docs, Wikipedia, library databases
+- **Film studies** — YouTube, Netflix, Notes app, course website
+- **Language learning** — Duolingo, YouTube, Google Translate, dictionary sites
 
-For example:
-
-A coding session might allow:
-
-- VS Code
-- Chrome
-- GitHub
-- Stack Overflow
-- MDN
-- ChatGPT
-
-An essay session might allow:
-
-- Chrome
-- Notion
-- Google Docs
-- Wikipedia
-- Library databases
-
-A film studies session might allow:
-
-- YouTube
-- Netflix
-- Notes app
-- Course website
-
-A language learning session might allow:
-
-- Duolingo
-- YouTube
-- Google Translate
-- Dictionary websites
-
-With presets, users do not need to rebuild their allowed apps and websites every time.
-
-Each preset can include:
-
-- Preset name
-- Default allowed apps
-- Default allowed websites
-
-This makes it much faster to start a focus session.
+Each preset stores a name, default allowed apps, and default allowed websites — so you don't rebuild your environment every time you start.
 
 ---
 
 ## Achievements and XP
 
-LockInAI includes achievements and XP to make focus progress visible.
+LOCK//IN AI uses achievements and XP to make focus progress visible. Tracked achievements can include First Bloom, Deep Diver, Gardener, Power Surge, long-streak milestones, and the 100 Day Sanctuary.
 
-The app can track achievements such as:
-
-- First Bloom
-- Deep Diver
-- Gardener
-- Power Surge
-- Long streak milestones
-- 100 Day Sanctuary
-
-Achievements give users a reason to keep returning.
-
-They also solve a subtle problem: focus work is usually invisible.
-
-Nobody sees when a user avoids opening TikTok. Nobody applauds them for staying off distracting websites. Achievements and XP give that invisible discipline a visible form.
+Focus work is usually invisible — nobody applauds you for *not* opening TikTok. Achievements and XP give that invisible discipline a visible form, and a reason to keep returning.
 
 ---
 
 ## Lockie
 
-Lockie is the companion character inside LockInAI.
+**Lockie** is the companion character at the heart of LOCK//IN AI, and the face of the brand. Lockie makes the app feel human rather than punishing. During a session, Lockie can:
 
-Lockie helps make the app feel more human.
-
-During a focus session, Lockie can:
-
-- Watch over the user
-- React when the user stays focused
-- Look worried when the user drifts
+- Watch over you
+- React when you stay focused
+- Look worried when you drift
 - Become disappointed when a session fails
 - Celebrate completed sessions
 - Walk through the garden
 
-Lockie helps make the app feel less like a punishment system and more like a friendly accountability partner.
+### Lockie cosmetics
 
----
-
-## Lockie Cosmetics
-
-Lockie can also earn cosmetic rewards through user progress.
-
-Examples include:
-
-- Glow aura after a seven-day streak
-- Bloom crown after a fourteen-day streak
-- Sanctuary halo after a thirty-day streak
-
-These cosmetics are not the main purpose of the app, but they help make progress feel rewarding.
-
-They also give users another reason to return and keep their streak alive.
+Lockie earns cosmetic rewards as you progress — a **glow aura** after a 7-day streak, a **bloom crown** after 14 days, a **sanctuary halo** after 30 days. They're not the point of the app, but they make progress feel rewarding and give you another reason to keep your streak alive.
 
 ---
 
 ## Voice Cues
 
-LockInAI includes voice cues for important moments.
-
-Voice cues can play when:
-
-- The user locks in
-- The user breaks focus
-- The user completes a session
-- The user fails a session
-
-For example, if the user breaks focus, the app can say:
+LOCK//IN AI includes voice cues for key moments — when you lock in, break focus, complete a session, or fail one. Break focus, for example, and the app can say:
 
 > Focus interrupted.
 
-Voice cues are meant to be calm and helpful, not aggressive.
-
-The user can toggle voice cues on or off from the header.
-
-In settings, the user can preview available system voices and choose the one they prefer.
+Cues are calm and helpful, not aggressive. Toggle them on or off from the header, and preview and choose from available system voices in settings.
 
 ---
 
 ## Settings
 
-LockInAI includes settings that let the user customize their experience.
+LOCK//IN AI lets you customize your experience:
 
-Possible settings include:
-
-- Toggle voice cues
-- Choose system voice
+- Toggle voice cues and choose the system voice
 - Hide Google AI Overviews during sessions
 - Clear the garden
-- Remove custom apps
-- Remove custom websites
-- Remove custom presets
+- Remove custom apps, websites, or presets
 - Reset progress
 
-The Clear Garden option can wipe:
-
-- Plants
-- Custom presets
-- Custom apps
-- Custom sites
-
-This action uses an in-app confirmation modal styled like the rest of the app, instead of a jarring system dialog.
+**Clear Garden** wipes plants, custom presets, custom apps, and custom sites. It uses an in-app confirmation modal styled like the rest of the app rather than a jarring system dialog.
 
 ---
 
 ## Interface Details
 
-LockInAI is designed to feel polished and focused.
+LOCK//IN AI is designed to feel polished and focused:
 
-Interface details include:
-
-- Frameless app window
-- Draggable title bar
+- Frameless app window with a draggable title bar
 - Hidden scrollbars that still allow scrolling
 - Pinned Continue buttons on setup screens
-- Calm visual style
-- Dark aurora aesthetic
-- Compact 400×680 layout
-- Focused single-window experience
+- Calm visual style in the dark aurora aesthetic
+- Compact 400×680, single-window layout
 
-The footer can show the current app and URL, giving the user transparency about what the app sees.
-
-This is important because the app monitors focus activity, so the user should understand what is being detected.
+The footer can show the current app and URL, giving you transparency about what the app sees — important, since it monitors focus activity.
 
 ---
 
 ## Platform Support
 
-LockInAI is designed as a cross-platform Electron desktop app.
+LOCK//IN AI is a cross-platform Electron desktop app.
 
-Supported desktop platforms include:
-
-- Windows
-- macOS
-- Linux
-
-### Windows
-
-On Windows, LockInAI can use native window handles and UI automation to detect and redirect focus.
-
-### macOS
-
-On macOS, LockInAI may request:
-
-- Accessibility permissions
-- Screen Recording permissions
-
-These permissions are needed so the app can detect the active window and guide the user back to their focus environment.
-
-### Linux
-
-Linux support depends on desktop environment compatibility and active window detection options.
+| Platform | Notes |
+| --- | --- |
+| **Windows** | Uses native window handles and UI automation to detect and redirect focus. |
+| **macOS** | May request Accessibility and Screen Recording permissions to detect the active window and guide you back. |
+| **Linux** | Support depends on desktop-environment compatibility and active-window detection options. |
 
 ---
 
 ## Tech Stack
 
-LockInAI is built using modern desktop and web technologies.
+LOCK//IN AI is built with modern desktop and web technologies:
 
-Possible technologies include:
+- **Electron** — desktop shell
+- **Next.js** + **TypeScript** + **React** — UI
+- **Tailwind CSS** — styling
+- **Browser extension APIs** — browser-level enforcement
+- **Local WebSocket** — app ↔ extension communication
+- **SVG plant generation** — the garden
+- **Desktop active-window monitoring** + UI automation — enforcement
+- **Local storage** — persistence
 
-- Electron
-- Next.js
-- TypeScript
-- Browser extension APIs
-- Local WebSocket communication
-- SVG plant generation
-- Desktop active-window monitoring
-- UI automation tools
-- Local storage
-
-The app combines desktop monitoring with browser-level protection so it can enforce focus in both the operating system and the web browser.
+The app pairs desktop monitoring with browser-level protection so it can enforce focus in both the operating system and the web browser.
 
 ---
 
 ## How It Works
 
-LockInAI works in layers.
+LOCK//IN AI works in layers:
 
-### 1. The user defines the session
-
-Before starting, the user chooses the subject, time, allowed apps, and allowed websites.
-
-### 2. The app starts a timer
-
-The focus session begins, and the app displays the timer, subject, plant, XP, streak, and allowed tools.
-
-### 3. The app monitors focus
-
-LockInAI checks the active app or website to see whether the user is still inside the allowed environment.
-
-### 4. The app reacts to distractions
-
-If the user opens something disallowed, the app can snap them back, show feedback, and count a breach.
-
-### 5. The session succeeds or fails
-
-If the timer ends successfully, the user grows a plant.
-
-If the user breaches too many times, the session ends and a dead plant is added.
-
-### 6. Progress is saved
-
-The garden, XP, achievements, streaks, presets, custom apps, and custom websites can be saved locally.
+1. **You define the session** — subject, time, allowed apps, allowed websites.
+2. **The app starts a timer** — displaying the timer, subject, plant, XP, streak, and allowed tools.
+3. **The app monitors focus** — checking the active app or website against your allowed environment.
+4. **The app reacts to distractions** — snapping you back, showing feedback, and counting a breach.
+5. **The session succeeds or fails** — finish the timer to grow a plant; breach too often and a dead plant is added.
+6. **Progress is saved** — garden, XP, achievements, streaks, presets, and custom apps/sites persist locally.
 
 ---
 
 ## Who This App Is For
 
-LockInAI is for anyone who wants to focus but struggles with digital distractions.
+LOCK//IN AI is for anyone who wants to focus but struggles with digital distractions — especially:
 
-It is especially useful for:
-
-- Students
-- Developers
-- Writers
-- Designers
-- Creatives
+- Students, developers, writers, designers, and creatives
 - Online learners
-- People with deadline pressure
+- People under deadline pressure
 - People who get pulled into random browsing
 - People who dislike harsh productivity blockers
 
-It is made for users who do not need another lecture about discipline.
-
-They need a system that makes focus easier.
+It's made for users who don't need another lecture about discipline. They need a system that makes focus easier.
 
 ---
 
 ## Project Purpose
 
-The purpose of LockInAI is to create a focus tool that feels structured, useful, and warm.
+The purpose of LOCK//IN AI is a focus tool that feels structured, useful, and warm. It's not just a timer, a website blocker, or a gamified productivity app — it combines all of these into one experience:
 
-It is not just a timer.
+- A **timer** for structure
+- **Enforcement** for accountability
+- A **garden** for visual progress
+- **Lockie** for companionship
+- **Presets** for convenience
+- **Browser protection** for real-world distractions
+- **Achievements** for motivation
 
-It is not just a website blocker.
-
-It is not just a gamified productivity app.
-
-LockInAI combines all of these ideas into one experience:
-
-- A timer for structure
-- Enforcement for accountability
-- A garden for visual progress
-- Lockie for companionship
-- Presets for convenience
-- Browser protection for real-world distractions
-- Achievements for motivation
-
-The app treats attention like something that can be cultivated.
-
-One session at a time.
-
-One plant at a time.
-
-One locked-in moment at a time.
+The app treats attention like something that can be cultivated — one session, one plant, one locked-in moment at a time.
 
 ---
 
 ## Future Ideas
 
-Possible future improvements could include:
-
-- More plant types
-- More Lockie cosmetics
-- More focus presets
-- Detailed focus analytics
-- Weekly focus reports
-- More browser support
-- Cloud backup
-- Optional account sync
-- More blocked page themes
-- More achievement categories
+- More plant types, Lockie cosmetics, and focus presets
+- Detailed focus analytics and weekly reports
+- A focus streak calendar
+- Broader browser support and improved Linux support
+- Cloud backup and optional account sync
+- More blocked-page themes and achievement categories
 - Soundscape or ambient music options
-- Focus streak calendar
 - Pomodoro-style break sessions
 - Friend gardens or shared focus rooms
 - Exportable focus history
-- Improved Linux support
-- Mobile companion app
+- A mobile companion app
+
+---
+
+## Repository Layout
+
+```
+.
+├── electron/      Electron main process (windowing, monitoring, extension bridge)
+├── src/           Next.js + React app UI
+├── extension/     Companion browser extension  — see extension/README.md
+├── website/       Marketing / download landing site — see website/README.md
+├── build/         App icons and build assets
+└── package.json   Scripts and electron-builder config
+```
+
+### Run it locally
+
+```bash
+npm install
+npm run electron:dev   # Next.js dev server + Electron, hot-reloaded
+```
+
+Build a distributable:
+
+```bash
+npm run electron:build   # next build && electron-builder → ./release
+```
 
 ---
 
 ## Summary
 
-LockInAI is a warm but firm focus companion.
+LOCK//IN AI is a warm but firm focus companion. It helps you define what to work on, protects you from distractions, and rewards successful sessions with a growing garden.
 
-It helps users define what they want to work on, protects them from distractions, and rewards successful focus sessions with a growing garden.
+It exists because modern computers are full of distractions, and willpower alone often isn't enough. LOCK//IN AI gives you structure, enforcement, warmth, and proof of progress.
 
-The app exists because modern computers are full of distractions, and willpower alone is often not enough.
-
-LockInAI gives users structure, enforcement, warmth, and proof of progress.
-
-Your focus becomes visible.
-
-Your effort becomes a garden.
+**Your focus becomes visible. Your effort becomes a garden.**

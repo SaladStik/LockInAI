@@ -1,4 +1,8 @@
-# LOCK//IN AI Companion Extension
+# LOCK//IN AI — Companion Extension
+
+> **Focus that grows.** The browser half of [LOCK//IN AI](../README.md) — it gives
+> the desktop app eyes and hands inside Chromium browsers so site enforcement works
+> everywhere.
 
 Gives the desktop app real browser tab URLs and reliable tab control on Windows —
 the same capability AppleScript provides on macOS. Works in any Chromium browser

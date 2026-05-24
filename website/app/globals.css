@@ -282,6 +282,151 @@ main { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
 footer { padding: 30px 24px 50px; text-align: center; color: var(--muted-foreground); font-size: 0.8rem; }
 footer .brand { justify-content: center; margin-bottom: 10px; font-size: 11px; }
 
+/* ---- screenshots page ---- */
+.page-head {
+  text-align: center;
+  padding: 140px 0 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.page-head .eyebrow { animation: rise 0.6s var(--ease-soft) both; }
+.page-title {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-shadow: 0 0 40px color-mix(in oklab, var(--primary) 22%, transparent);
+  animation: rise 0.7s var(--ease-soft) 0.05s both;
+}
+.page-sub {
+  max-width: 60ch;
+  font-size: clamp(0.98rem, 2vw, 1.12rem);
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  animation: rise 0.7s var(--ease-soft) 0.12s both;
+}
+
+.shot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 18px;
+  padding-bottom: 80px;
+}
+.shot-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid oklch(1 0 0 / 8%);
+  border-radius: 16px;
+  overflow: hidden;
+  background: oklch(0.13 0.02 250);
+  cursor: zoom-in;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: transform 0.2s var(--ease-soft), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.shot-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1366 / 768;
+  object-fit: cover;
+  transition: transform 0.3s var(--ease-soft);
+}
+.shot-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in oklab, var(--accent) 50%, transparent);
+  box-shadow: 0 18px 50px -24px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+.shot-card:hover img { transform: scale(1.03); }
+.shot-cap {
+  display: block;
+  padding: 12px 14px 14px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+  border-top: 1px solid oklch(1 0 0 / 6%);
+}
+
+/* ---- lightbox ---- */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vh 4vw;
+  background: oklch(0.06 0.02 250 / 0.92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: rise 0.2s ease both;
+  cursor: zoom-out;
+}
+.lb-figure {
+  margin: 0;
+  max-width: 1100px;
+  width: 100%;
+  cursor: default;
+}
+.lb-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 14px;
+  border: 1px solid oklch(1 0 0 / 12%);
+  box-shadow: 0 40px 100px -30px oklch(0 0 0 / 0.8);
+}
+.lb-figure figcaption {
+  margin-top: 14px;
+  text-align: center;
+  color: var(--foreground);
+  font-size: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lb-count { color: var(--muted-foreground); font-size: 0.8rem; font-family: ui-monospace, "SF Mono", monospace; letter-spacing: 0.1em; }
+.lb-close, .lb-nav {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  background: oklch(0.16 0.02 250 / 0.85);
+  color: var(--foreground);
+  border: 1px solid oklch(1 0 0 / 14%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.12s ease;
+}
+.lb-close:hover, .lb-nav:hover { border-color: var(--accent); background: oklch(0.2 0.03 250 / 0.9); }
+.lb-nav:active { transform: scale(0.94); }
+.lb-close {
+  top: 20px; right: 20px;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+}
+.lb-nav {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  font-size: 2rem;
+  line-height: 1;
+}
+.lb-prev { left: 16px; }
+.lb-next { right: 16px; }
+
+@media (max-width: 640px) {
+  .shot-grid { grid-template-columns: 1fr; }
+  .lb-nav { width: 44px; height: 44px; font-size: 1.6rem; }
+}
+
 @media (max-width: 600px) {
   .topbar nav a:not(.ghbtn) { display: none; }
   .hero { gap: 20px; }

@@ -1,38 +1,7 @@
 import { Lockie } from "@/components/Lockie";
-
-/* ============================================================
-   Download links — point at the GitHub releases.
-   Edit REPO / VERSION / asset filenames when you cut a release.
-   ============================================================ */
-const REPO = "SaladStik/LockInAI"; // <-- GitHub owner/repo
-const VERSION = "v0.1.0"; // tag the download assets live under
-const BASE = `https://github.com/${REPO}`;
-const RELEASES = `${BASE}/releases/latest`;
-
-// Direct one-click downloads. Until a release is published, these point at the
-// latest-release page (where all assets are listed). Once you cut a release,
-// flip each entry to `dl("<exact-asset-name>")` for true one-click downloads.
-const dl = (asset: string) => `${BASE}/releases/download/${VERSION}/${asset}`;
-void dl; // keep helper available for when assets are published
-
-const DOWNLOADS = {
-  mac: RELEASES,
-  win: RELEASES,
-};
-
-const YEAR = new Date().getFullYear();
-
-const Brand = () => (
-  <div className="brand">
-    LOCK<span className="slash">//</span>IN<span className="ai">AI</span>
-  </div>
-);
-
-const GitHubIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.5v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11 11 0 0 1 6 0C17.3 4.6 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.6.8.5 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z" />
-  </svg>
-);
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
+import { DOWNLOADS, RELEASES } from "@/lib/links";
 
 const AppleIcon = () => (
   <svg viewBox="0 0 24 24" fill="currentColor">
@@ -93,17 +62,7 @@ const FEATURES: Feature[] = [
 export default function Page() {
   return (
     <>
-      <header className="topbar">
-        <Brand />
-        <nav>
-          <a href="#features">Features</a>
-          <a href="#download">Download</a>
-          <a className="ghbtn" href={BASE} target="_blank" rel="noopener noreferrer">
-            <GitHubIcon />
-            GitHub
-          </a>
-        </nav>
-      </header>
+      <SiteHeader />
 
       <main>
         <section className="hero" id="download">
@@ -139,6 +98,8 @@ export default function Page() {
             </a>
           </div>
           <p className="platform-note">
+            <a href="/screenshots">See it in action →</a>
+            {" · "}
             All builds &amp; release notes on{" "}
             <a href={RELEASES} target="_blank" rel="noopener noreferrer">
               GitHub Releases →
@@ -178,10 +139,7 @@ export default function Page() {
         </section>
       </main>
 
-      <footer>
-        <Brand />
-        <div>Focus that grows. © {YEAR} LOCK//IN AI.</div>
-      </footer>
+      <SiteFooter />
     </>
   );
 }
