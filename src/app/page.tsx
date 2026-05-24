@@ -9,13 +9,8 @@ const LockInPopup = dynamic(
 
 export default function Page() {
   return (
-    <main
-      className="flex h-screen w-screen items-center justify-center bg-transparent"
-      style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
-    >
-      <div style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-        <LockInPopup />
-      </div>
+    <main className="flex h-screen w-screen items-center justify-center bg-transparent">
+      <LockInPopup />
     </main>
   );
 }

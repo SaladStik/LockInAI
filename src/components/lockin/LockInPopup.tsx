@@ -48,9 +48,15 @@ export function LockInPopup() {
         )}
       </AnimatePresence>
 
-      {/* faux window chrome */}
-      <div className="relative z-10 flex items-center justify-between px-5 pt-4">
-        <div className="group flex items-center gap-1.5">
+      {/* faux window chrome — drag handle for frameless Electron window */}
+      <div
+        className="relative z-10 flex cursor-default items-center justify-between px-5 pb-2 pt-4"
+        style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+      >
+        <div
+          className="group flex items-center gap-1.5"
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+        >
           <button
             type="button"
             aria-label="Close window"
@@ -70,10 +76,13 @@ export function LockInPopup() {
             className="h-3 w-3 rounded-full bg-primary/80 transition hover:bg-primary"
           />
         </div>
-        <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+        <div className="pointer-events-none font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground select-none">
           LOCK<span className="text-primary">//</span>IN · AI
         </div>
-        <div className="flex items-center gap-1.5">
+        <div
+          className="flex items-center gap-1.5"
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+        >
           <button
             onClick={s.toggleVoice}
             aria-label="Toggle voice"
