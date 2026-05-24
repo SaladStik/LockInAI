@@ -126,6 +126,7 @@ export default function Page() {
 
         <section className="cta">
           <h2>Ready to lock in?</h2>
+          <p className="chud-line">Lock in or be a chud.</p>
           <p>Free to download. Your focus, your plant, your streak — all on your own machine.</p>
           <div className="downloads">
             <a className="btn btn-primary" href={DOWNLOADS.mac} target="_blank" rel="noopener noreferrer">

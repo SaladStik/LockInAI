@@ -11,14 +11,23 @@
 const BROWSER_PATTERNS = [
   /chrome/i,
   /google chrome/i,
+  /chromium/i,
   /microsoft edge/i,
   /msedge/i,
   /firefox/i,
+  /firefox developer edition/i,
+  /firefox nightly/i,
   /brave/i,
   /vivaldi/i,
   /opera/i,
   /arc/i,
   /safari/i,
+  /tor browser/i,
+  /mullvad/i,
+  /floorp/i,
+  /yandex/i,
+  /waterfox/i,
+  /\bbrowser\b/i,
 ];
 
 const BROWSER_EXE_PATTERNS = [
@@ -29,6 +38,8 @@ const BROWSER_EXE_PATTERNS = [
   /\\vivaldi\.exe$/i,
   /\\opera\.exe$/i,
   /\\arc\.exe$/i,
+  /\\tor\.exe$/i,
+  /\\browser\.exe$/i,
 ];
 
 const APP_MATCHERS = {

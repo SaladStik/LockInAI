@@ -15,9 +15,16 @@ type Step =
   | "sad"
   | "permissions"
   | "extension"
+  | "gemini"
   | "done";
 
-export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
+export function OnboardingScreen({
+  onComplete,
+  onSetHideGemini,
+}: {
+  onComplete: () => void;
+  onSetHideGemini: (value: boolean) => void;
+}) {
   const [step, setStep] = useState<Step>("egg");
   const isMac =
     typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
@@ -41,7 +48,8 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
     else if (step === "intro") setStep("sad");
     else if (step === "sad") setStep(isMac ? "permissions" : "extension");
     else if (step === "permissions") setStep("extension");
-    else if (step === "extension") finish();
+    else if (step === "extension") setStep("gemini");
+    else if (step === "gemini") finish();
   }
 
   return (
@@ -56,7 +64,14 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           <PermissionsStep key="permissions" onNext={next} onSkip={next} />
         )}
         {step === "extension" && (
-          <ExtensionStep key="extension" onNext={finish} />
+          <ExtensionStep key="extension" onNext={next} />
+        )}
+        {step === "gemini" && (
+          <GeminiStep
+            key="gemini"
+            onDone={finish}
+            onSetHideGemini={onSetHideGemini}
+          />
         )}
       </AnimatePresence>
     </div>
@@ -621,6 +636,71 @@ function ExtensionStep({ onNext }: { onNext: () => void }) {
 // ---------------------------------------------------------------------------
 // Egg SVG — simple ovoid with a soft gradient + optional crack overlay.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Step 6: Gemini — last setup beat. Lockie holds an hourglass while asking
+// whether to hide Google's AI Overview during focus sessions.
+// ---------------------------------------------------------------------------
+function GeminiStep({
+  onDone,
+  onSetHideGemini,
+}: {
+  onDone: () => void;
+  onSetHideGemini: (value: boolean) => void;
+}) {
+  const [saving, setSaving] = useState<"yes" | "no" | null>(null);
+  function answer(hide: boolean) {
+    setSaving(hide ? "yes" : "no");
+    onSetHideGemini(hide);
+    window.setTimeout(onDone, 280);
+  }
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.4 }}
+      className="flex h-full flex-col items-center"
+    >
+      <div className="relative mt-2 flex h-44 w-full items-end justify-center">
+        <motion.div
+          animate={{ y: [-3, 4, -3] }}
+          transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <Lockie mood="focused" size={120} />
+        </motion.div>
+      </div>
+
+      <div className="mt-4 text-center">
+        <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary-glow">
+          last setup beat
+        </p>
+        <h2 className="mt-2 text-lg font-semibold tracking-tight text-foreground">
+          Hide Google's AI Overview?
+        </h2>
+        <p className="mt-1 px-2 text-[11px] leading-relaxed text-muted-foreground">
+          On Google search, Lockie can hide the AI-generated "Overview" block
+          so the page stays calm and you focus on the real results.
+        </p>
+      </div>
+
+      <div className="mt-auto flex w-full flex-col gap-2">
+        <PrimaryButton onClick={() => answer(true)} disabled={saving !== null}>
+          {saving === "yes" ? "Saving…" : "Yes, hide it"} <ChevronRight size={16} />
+        </PrimaryButton>
+        <button
+          type="button"
+          onClick={() => answer(false)}
+          disabled={saving !== null}
+          className="rounded-lg border border-border/50 px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+        >
+          {saving === "no" ? "Saving…" : "No thanks"}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+
 function EggSvg({ size = 160, cracked = false }: { size?: number; cracked?: boolean }) {
   return (
     <svg
