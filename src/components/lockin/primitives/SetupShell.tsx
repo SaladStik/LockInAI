@@ -16,9 +16,9 @@ export function SetupShell({
 }) {
   const mood: LockieMood = excited ? "excited" : "curious";
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex h-full min-h-0 flex-col gap-5">
       {/* progress dots */}
-      <div className="flex items-center justify-center gap-1.5 pt-1">
+      <div className="flex shrink-0 items-center justify-center gap-1.5 pt-1">
         {[1, 2, 3, 4, 5].map((i) => (
           <span
             key={i}
@@ -33,14 +33,16 @@ export function SetupShell({
         ))}
       </div>
       {/* Lockie + plant duo */}
-      <div className="flex items-end justify-center gap-3">
+      <div className="flex shrink-0 items-end justify-center gap-3">
         <Lockie mood={mood} size={72} />
         <Plant stage={plantStage} size={92} excited={excited} />
       </div>
-      <h2 className="text-center text-lg font-medium tracking-tight text-foreground">
+      <h2 className="shrink-0 text-center text-lg font-medium tracking-tight text-foreground">
         {title}
       </h2>
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60">
+        {children}
+      </div>
     </div>
   );
 }

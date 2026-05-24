@@ -39,6 +39,14 @@ export type GardenPlant = {
   created_at?: number;
 };
 
+export type CustomSession = {
+  id: number;
+  name: string;
+  default_apps: string[];
+  default_sites: string[];
+  created_at?: number;
+};
+
 export type PermissionsStatus = {
   accessibility: "granted" | "denied" | "not-determined" | "restricted" | "unknown";
   screenRecording: "granted" | "denied" | "not-determined" | "restricted" | "unknown";
@@ -86,6 +94,15 @@ declare global {
         list: () => Promise<GardenPlant[]>;
         add: (plant: Omit<GardenPlant, "created_at">) => Promise<GardenPlant>;
         clear: () => Promise<boolean>;
+      };
+      customSessions: {
+        list: () => Promise<CustomSession[]>;
+        add: (payload: {
+          name: string;
+          default_apps: string[];
+          default_sites?: string[];
+        }) => Promise<CustomSession>;
+        remove: (id: number) => Promise<boolean>;
       };
     };
   }

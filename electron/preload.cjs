@@ -41,4 +41,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     add: (plant) => ipcRenderer.invoke("garden:add", plant),
     clear: () => ipcRenderer.invoke("garden:clear"),
   },
+  customSessions: {
+    list: () => ipcRenderer.invoke("custom-sessions:list"),
+    add: (payload) => ipcRenderer.invoke("custom-sessions:add", payload),
+    remove: (id) => ipcRenderer.invoke("custom-sessions:remove", id),
+  },
 });

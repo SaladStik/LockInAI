@@ -5,6 +5,7 @@ export const ALL_APPS = [
   "VSCode",
   "Notion",
   "YouTube",
+  "Netflix",
   "PDF Viewer",
   "Figma",
   "Spotify",

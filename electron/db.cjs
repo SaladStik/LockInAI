@@ -30,6 +30,13 @@ function init(userDataDir) {
       minutes INTEGER NOT NULL DEFAULT 25,
       created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
     );
+    CREATE TABLE IF NOT EXISTS custom_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      default_apps TEXT NOT NULL DEFAULT '[]',
+      default_sites TEXT NOT NULL DEFAULT '[]',
+      created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
+    );
   `);
   // Migration: add `minutes` to gardens created before rarity existed.
   try {
@@ -189,6 +196,75 @@ function clearGardenPlants() {
   return true;
 }
 
+function parseJsonArray(raw, field) {
+  try {
+    const parsed = JSON.parse(raw ?? "[]");
+    if (!Array.isArray(parsed)) throw new Error("not array");
+    return parsed.map((v) => String(v).trim()).filter(Boolean);
+  } catch {
+    throw new Error(`invalid ${field}`);
+  }
+}
+
+function rowToCustomSession(row) {
+  return {
+    id: Number(row.id),
+    name: row.name,
+    default_apps: parseJsonArray(row.default_apps, "default_apps"),
+    default_sites: parseJsonArray(row.default_sites, "default_sites"),
+    created_at: row.created_at,
+  };
+}
+
+function listCustomSessions() {
+  if (!db) throw new Error("db not initialized");
+  return db
+    .prepare(
+      "SELECT id, name, default_apps, default_sites, created_at FROM custom_sessions ORDER BY created_at ASC",
+    )
+    .all()
+    .map(rowToCustomSession);
+}
+
+function addCustomSession(payload) {
+  if (!db) throw new Error("db not initialized");
+  const name = String(payload?.name ?? "").trim();
+  if (!name) throw new Error("name required");
+  if (name.length > 64) throw new Error("name too long");
+  const default_apps = Array.isArray(payload?.default_apps)
+    ? payload.default_apps.map((v) => String(v).trim()).filter(Boolean)
+    : [];
+  const default_sites = Array.isArray(payload?.default_sites)
+    ? payload.default_sites.map((v) => String(v).trim()).filter(Boolean)
+    : [];
+  if (default_apps.length === 0) throw new Error("pick at least one app");
+
+  const stmt = db.prepare(
+    "INSERT INTO custom_sessions (name, default_apps, default_sites) VALUES (?, ?, ?)",
+  );
+  try {
+    const res = stmt.run(name, JSON.stringify(default_apps), JSON.stringify(default_sites));
+    return rowToCustomSession({
+      id: res.lastInsertRowid,
+      name,
+      default_apps: JSON.stringify(default_apps),
+      default_sites: JSON.stringify(default_sites),
+      created_at: Math.floor(Date.now() / 1000),
+    });
+  } catch (e) {
+    if (/UNIQUE/.test(e.message)) throw new Error("session name already exists");
+    throw e;
+  }
+}
+
+function removeCustomSession(id) {
+  if (!db) throw new Error("db not initialized");
+  const numericId = Number(id);
+  if (!Number.isFinite(numericId)) throw new Error("invalid id");
+  const res = db.prepare("DELETE FROM custom_sessions WHERE id = ?").run(numericId);
+  return res.changes > 0;
+}
+
 module.exports = {
   init,
   listCustomApps,
@@ -200,4 +276,7 @@ module.exports = {
   listGardenPlants,
   addGardenPlant,
   clearGardenPlants,
+  listCustomSessions,
+  addCustomSession,
+  removeCustomSession,
 };

@@ -13,6 +13,7 @@ const APP_MATCHERS = {
   VSCode: [/visual studio code/i, /^code$/i, /cursor/i, /vscode/i],
   Notion: [/notion/i],
   YouTube: [/youtube/i],
+  Netflix: [/netflix/i],
   "PDF Viewer": [/acrobat/i, /foxit/i, /sumatra/i, /pdf/i, /reader/i],
   Figma: [/figma/i],
   Spotify: [/spotify/i],
@@ -22,6 +23,7 @@ const EXE_MATCHERS = {
   Chrome: [/\\chrome\.exe$/i, /\\msedge\.exe$/i],
   VSCode: [/\\code\.exe$/i, /\\cursor\.exe$/i],
   Notion: [/\\notion\.exe$/i],
+  Netflix: [/\\netflix\.exe$/i],
   Figma: [/\\figma\.exe$/i],
   Spotify: [/\\spotify\.exe$/i],
 };
@@ -31,6 +33,7 @@ const EXE_MATCHERS = {
 // grants no site; browser usage is governed by allowed sites.)
 const APP_SITE_HOSTS = {
   YouTube: ["youtube.com", "youtu.be"],
+  Netflix: ["netflix.com"],
   Notion: ["notion.so"],
   Figma: ["figma.com"],
   Spotify: ["open.spotify.com", "spotify.com"],
@@ -212,6 +215,7 @@ function isAllowedFocusApp(snapshot, allowedApps, allowedSites = []) {
     if (patterns.some((re) => re.test(app) || re.test(path))) return true;
     if (EXE_MATCHERS[label]?.some((re) => re.test(path))) return true;
     if (label === "YouTube" && /youtube/i.test(title)) return true;
+    if (label === "Netflix" && /netflix/i.test(title)) return true;
     return false;
   });
 }
