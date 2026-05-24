@@ -39,7 +39,7 @@ export function LockInPopup() {
   const [breach, setBreach] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
   const [emergencyExit, setEmergencyExit] = useState<boolean>(false);
-  const { plants: garden, addPlant } = useGarden();
+  const { plants: garden, addPlant, clearGarden } = useGarden();
   const [totalSessions, setTotalSessions] = useState<number>(12);
   const [longestSessionMin, setLongestSessionMin] = useState<number>(45);
   const [voiceOn, setVoiceOn] = useState<boolean>(!isVoiceMuted());
@@ -476,7 +476,7 @@ export function LockInPopup() {
               />
             )}
             {screen === "settings" && (
-              <SettingsScreen onBack={() => setScreen("welcome")} />
+              <SettingsScreen onBack={() => setScreen("welcome")} onClearGarden={clearGarden} />
             )}
           </motion.div>
         </AnimatePresence>

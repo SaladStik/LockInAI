@@ -49,5 +49,15 @@ export function useGarden() {
     [reload],
   );
 
-  return { plants, ready, addPlant, reload };
+  const clearGarden = useCallback(async () => {
+    const api = window.electronAPI;
+    if (!api?.garden?.clear) {
+      setPlants([]);
+      return;
+    }
+    await api.garden.clear();
+    await reload();
+  }, [reload]);
+
+  return { plants, ready, addPlant, clearGarden, reload };
 }

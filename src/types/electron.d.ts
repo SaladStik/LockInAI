@@ -84,6 +84,7 @@ declare global {
       garden: {
         list: () => Promise<GardenPlant[]>;
         add: (plant: Omit<GardenPlant, "created_at">) => Promise<GardenPlant>;
+        clear: () => Promise<boolean>;
       };
     };
   }

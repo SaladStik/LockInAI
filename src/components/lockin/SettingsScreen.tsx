@@ -12,10 +12,18 @@ import {
 
 const SAMPLE_PHRASE = "Lock in. Stay focused. You've got this.";
 
-export function SettingsScreen({ onBack }: { onBack: () => void }) {
+export function SettingsScreen({
+  onBack,
+  onClearGarden,
+}: {
+  onBack: () => void;
+  onClearGarden: () => Promise<void>;
+}) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>(() => listVoices());
   const [selected, setSelected] = useState<string | null>(() => getSelectedVoiceURI());
   const [showAll, setShowAll] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = () => setVoices(listVoices());
@@ -41,6 +49,22 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
   function preview(voiceURI: string | null) {
     previewVoice(SAMPLE_PHRASE, voiceURI);
+  }
+
+  async function handleResetApp() {
+    const ok = window.confirm(
+      "Reset your garden? All plants will be permanently deleted. This cannot be undone.",
+    );
+    if (!ok) return;
+    setResetting(true);
+    setResetError(null);
+    try {
+      await onClearGarden();
+    } catch (e) {
+      setResetError(e instanceof Error ? e.message : "Couldn't reset garden");
+    } finally {
+      setResetting(false);
+    }
   }
 
   return (
@@ -102,6 +126,24 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
             onPreview={() => preview(v.voiceURI)}
           />
         ))}
+
+        <div className="mt-4 border-t border-border/40 pt-4">
+          <div className="text-[11px] font-medium text-foreground">Reset app</div>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+            Clears your entire garden. New plants will grow as you complete future sessions.
+          </p>
+          {resetError && (
+            <p className="mt-2 text-[10px] text-destructive">{resetError}</p>
+          )}
+          <button
+            type="button"
+            onClick={handleResetApp}
+            disabled={resetting}
+            className="mt-3 w-full rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-destructive transition hover:bg-destructive/20 disabled:opacity-50"
+          >
+            {resetting ? "Resetting…" : "Reset garden"}
+          </button>
+        </div>
       </div>
     </div>
   );
