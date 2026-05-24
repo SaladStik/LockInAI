@@ -2,7 +2,7 @@ import { Flame, Sparkles, AlertTriangle } from "lucide-react";
 import { Lockie, type LockieMood } from "@/components/lockin/Lockie";
 import { Plant } from "@/components/lockin/Plant";
 import { CircularTimer } from "@/components/lockin/CircularTimer";
-import { isAllowedFocusApp } from "@/lib/apps";
+import { isAllowedFocusApp, subjectExtraAlwaysAllowedHosts } from "@/lib/apps";
 import type { LockieSkin } from "@/components/lockin/achievements";
 import type { ActiveAppSnapshot } from "@/types/electron";
 
@@ -49,7 +49,7 @@ export function FocusScreen({
   const offApp =
     appDetection &&
     activeApp &&
-    !isAllowedFocusApp(activeApp, apps, sites);
+    !isAllowedFocusApp(activeApp, apps, sites, subjectExtraAlwaysAllowedHosts(subject));
   return (
     <div className="flex h-full flex-col items-center">
       {/* Top bar with plant + streak */}

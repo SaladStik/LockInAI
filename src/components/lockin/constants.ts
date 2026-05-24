@@ -15,9 +15,6 @@ export const ALL_APPS = [
 export const ALL_SITES = [
   "chatgpt.com",
   "claude.ai",
-  "github.com",
-  "stackoverflow.com",
-  "developer.mozilla.org",
   "youtube.com",
 ];
 

@@ -6,7 +6,7 @@ import { useCustomSessions } from "@/hooks/useCustomSessions";
 import { useGarden } from "@/hooks/useGarden";
 import { useStats } from "@/hooks/useStats";
 import { buildAchievements, streakSkin, streakSkinLabel } from "./achievements";
-import { isAllowedFocusApp } from "@/lib/apps";
+import { isAllowedFocusApp, subjectExtraAlwaysAllowedHosts } from "@/lib/apps";
 import { createPlantId, resolvePlantName, type GardenPlant } from "@/lib/garden";
 import { speak, setVoiceMuted, isVoiceMuted } from "@/lib/voice";
 import { getHideGemini, setHideGemini } from "@/lib/browserPrefs";
@@ -29,7 +29,7 @@ export function useLockInSession() {
   const [activePlantName, setActivePlantName] = useState<string>("");
   const [minutes, setMinutes] = useState<number>(25);
   const [apps, setApps] = useState<string[]>(["Cursor", "Browser", "Notion"]);
-  const [sites, setSites] = useState<string[]>(["chatgpt.com", "github.com"]);
+  const [sites, setSites] = useState<string[]>(["chatgpt.com", "claude.ai"]);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
   const [stage, setStage] = useState<number>(0);
   const { stats, recordCompletion, recordBail, markUnlockedSeen } = useStats();
@@ -76,6 +76,12 @@ export function useLockInSession() {
   function selectBuiltInSubject(name: string) {
     setSessionKey(`builtin:${name}`);
     setSubject(name);
+    const extra = subjectExtraAlwaysAllowedHosts(name);
+    if (extra.length) {
+      setSites((current) =>
+        current.filter((site) => !extra.includes(site.toLowerCase().replace(/^www\./, ""))),
+      );
+    }
   }
 
   function selectCustomSession(session: import("@/types/electron").CustomSession) {
@@ -125,7 +131,7 @@ export function useLockInSession() {
     ]);
     selectBuiltInSubject("Coding");
     setApps(["Cursor", "Browser", "Notion"]);
-    setSites(["chatgpt.com", "github.com"]);
+    setSites(["chatgpt.com", "claude.ai"]);
     setPlantName("");
     setActivePlantName("");
     setBreachCount(0);
@@ -136,15 +142,20 @@ export function useLockInSession() {
     window.location.reload();
   }
 
+  const extraAlwaysAllowed = subjectExtraAlwaysAllowedHosts(subject);
+
   // Tell the main process which apps + sites are allowed so it can snap back.
   useEffect(() => {
     if (!hasNativeAppDetection) return;
-    window.electronAPI?.syncFocusSession(screen === "focus", apps, sites, { hideGemini });
+    window.electronAPI?.syncFocusSession(screen === "focus", apps, sites, {
+      hideGemini,
+      extraAlwaysAllowed,
+    });
     if (screen !== "focus") {
       focusAllowedRef.current = true;
       sessionStartGraceRef.current = null;
     }
-  }, [screen, apps, sites, hasNativeAppDetection, hideGemini]);
+  }, [screen, apps, sites, hasNativeAppDetection, hideGemini, extraAlwaysAllowed]);
 
   function toggleHideGemini(value: boolean) {
     setHideGemini(value);
@@ -232,7 +243,7 @@ export function useLockInSession() {
       sessionStartGraceRef.current = null;
     }
 
-    const allowed = isAllowedFocusApp(activeApp, apps, sites);
+    const allowed = isAllowedFocusApp(activeApp, apps, sites, extraAlwaysAllowed);
     if (allowed) {
       focusAllowedRef.current = true;
       return;
@@ -251,7 +262,7 @@ export function useLockInSession() {
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, activeApp, apps, sites, hasNativeAppDetection]);
+  }, [screen, activeApp, apps, sites, hasNativeAppDetection, extraAlwaysAllowed]);
 
   // Browser fallback when not running inside Electron.
   useEffect(() => {
