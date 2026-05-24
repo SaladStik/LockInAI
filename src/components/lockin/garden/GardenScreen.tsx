@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Lockie, type LockieMood } from "@/components/lockin/Lockie";
 import type { GardenPlant } from "@/lib/garden";
 import { hash01 } from "./hash01";
@@ -61,6 +61,34 @@ export function GardenScreen({
     return () => cancelAnimationFrame(id);
   }, []);
 
+  // Keyboard shortcuts (only active while the garden is mounted): `[` adds a
+  // living plant, `]` adds a dead one. Bypassed when the user is typing in an
+  // input/textarea/contenteditable so we don't hijack normal text entry.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      if (e.key === "[") {
+        e.preventDefault();
+        onAdd("alive");
+      } else if (e.key === "]") {
+        e.preventDefault();
+        onAdd("dead");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onAdd]);
+
   // Single rAF loop: ease the scroll toward the wheel target AND glue Lockie to
   // the curve at the live scroll position, so he walks smoothly along the path.
   useEffect(() => {
@@ -73,7 +101,8 @@ export function GardenScreen({
       if (Math.abs(diff) > 0.5) el.scrollLeft = cur + diff * 0.18;
       if (lockieRef.current) {
         const cx = el.scrollLeft + el.clientWidth / 2;
-        const y = dims.h * 0.5 + dims.h * 0.2 * Math.sin(cx / 120);
+        const uh = Math.max(120, dims.h - TOP_RESERVE);
+        const y = TOP_RESERVE + uh * 0.5 + uh * 0.2 * Math.sin(cx / 120);
         lockieRef.current.style.top = `${y}px`;
       }
       raf = requestAnimationFrame(tick);
@@ -95,11 +124,17 @@ export function GardenScreen({
 
   const STEP = 62;
   const START = 50;
+  // Vertical space reserved at the top for the overlay (back row + stats +
+  // caption). The path + plants stay below this so they don't slide under the
+  // overlay even as the canvas now spans the full popup height.
+  const TOP_RESERVE = 96;
   const contentW = Math.max(dims.w, START + plants.length * STEP + 46);
 
   // A winding trail that oscillates around the vertical middle (must match the
   // curve used to position Lockie in the rAF loop above).
-  const pathY = (x: number) => dims.h * 0.5 + dims.h * 0.2 * Math.sin(x / 120);
+  const usableH = Math.max(120, dims.h - TOP_RESERVE);
+  const pathY = (x: number) =>
+    TOP_RESERVE + usableH * 0.5 + usableH * 0.2 * Math.sin(x / 120);
 
   // Oldest plants nearest the start, newest at the end. New plants are
   // prepended, so reverse for chronological left-to-right placement.
@@ -152,7 +187,7 @@ export function GardenScreen({
           </defs>
           {Array.from({ length: Math.ceil(contentW / 70) }).map((_, k) => {
             const fx = k * 70 + hash01(`fx${k}`) * 64;
-            const fy = pathY(fx) + (hash01(`fy${k}`) - 0.5) * dims.h * 0.78;
+            const fy = pathY(fx) + (hash01(`fy${k}`) - 0.5) * usableH * 0.78;
             const fr = 9 + hash01(`fr${k}`) * 20;
             return (
               <circle
@@ -183,7 +218,7 @@ export function GardenScreen({
           />
         </svg>
         {layout.map((it) => {
-          const y = pathY(it.x) + (it.above ? -1 : 1) * (dims.h * it.offFactor + 16);
+          const y = pathY(it.x) + (it.above ? -1 : 1) * (usableH * it.offFactor + 16);
           return (
             <GardenSprite
               key={it.plant.id}
@@ -240,87 +275,76 @@ export function GardenScreen({
   const captionColor = health >= 0.45 ? "var(--primary-glow)" : "var(--warning)";
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      {/* header */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1 text-[11px] uppercase tracking-[0.3em] text-muted-foreground transition hover:text-foreground"
-        >
-          <ArrowLeft size={12} /> Back
-        </button>
-        <h2 className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary-glow">
-          Your forest
-        </h2>
-        <div className="w-12" />
-      </div>
-
-      {/* stats */}
-      <div className="flex gap-2">
-        <GardenStat label="Alive" value={alive.length} tone="primary" />
-        <GardenStat label="Lost" value={dead.length} tone="warning" />
-        <GardenStat label="Total" value={plants.length} tone="accent" />
-      </div>
-
-      {/* mood caption */}
+    <div className="relative -mx-6 h-full overflow-hidden">
+      {/* Pathway fills the entire garden — header/stats/caption float on top
+          so the aurora & curve no longer cut off below the stats row. */}
       <div
-        className="text-center text-[11px] font-medium"
-        style={{ color: captionColor, textShadow: `0 0 12px ${captionColor}` }}
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="absolute inset-0 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none" }}
       >
-        {caption}
+        {forest}
       </div>
 
-      {/* dev controls */}
-      <div className="flex items-center justify-center gap-2">
-        <button
-          onClick={() => onAdd("alive")}
-          className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.25em] text-primary-glow transition hover:bg-primary/20"
-        >
-          <Plus size={10} /> Living
-        </button>
-        <button
-          onClick={() => onAdd("dead")}
-          className="flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.25em] text-warning transition hover:bg-warning/20"
-        >
-          <Plus size={10} /> Dead
-        </button>
+      {/* Lockie — stays centered while the world scrolls, floating along the curve */}
+      <div
+        ref={lockieRef}
+        className="pointer-events-none absolute z-10"
+        style={{
+          left: "50%",
+          transform: "translate(-50%, -62%)",
+        }}
+      >
+        <Lockie mood={mood} size={74} skin="none" />
       </div>
 
-      {/* winding pathway — horizontal scroll */}
-      <div className="relative -mx-6 flex-1 overflow-hidden">
+      {/* Overlay UI — back row, stats, caption. Gradient backdrop keeps it
+          legible against whatever's behind it without hiding the background. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 px-6 pb-3 pt-3">
         <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="absolute inset-0 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
-          style={{ scrollbarWidth: "none" }}
-        >
-          {forest}
-        </div>
-
-        {/* Lockie — stays centered while the world scrolls, floating along the curve */}
-        <div
-          ref={lockieRef}
-          className="pointer-events-none absolute z-10"
+          className="pointer-events-none absolute inset-0 -z-10"
           style={{
-            left: "50%",
-            transform: "translate(-50%, -62%)",
+            background:
+              "linear-gradient(180deg, color-mix(in oklab, var(--background) 85%, transparent) 0%, color-mix(in oklab, var(--background) 55%, transparent) 60%, transparent 100%)",
           }}
-        >
-          <Lockie mood={mood} size={74} skin="none" />
+        />
+        <div className="pointer-events-auto flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 text-[11px] uppercase tracking-[0.3em] text-muted-foreground transition hover:text-foreground"
+          >
+            <ArrowLeft size={12} /> Back
+          </button>
+          <h2 className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary-glow">
+            Your forest
+          </h2>
+          <div className="w-12" />
         </div>
-
-        {/* scroll hints — older to the left, newer to the right */}
-        {canScroll && scrollX > 24 && (
-          <div className="pointer-events-none absolute bottom-2 left-3 z-10 animate-pulse font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
-            ← older
-          </div>
-        )}
-        {canScroll && scrollX < contentW - dims.w - 24 && (
-          <div className="pointer-events-none absolute bottom-2 right-3 z-10 animate-pulse font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
-            newer →
-          </div>
-        )}
+        <div className="pointer-events-auto mt-3 flex gap-2">
+          <GardenStat label="Alive" value={alive.length} tone="primary" />
+          <GardenStat label="Lost" value={dead.length} tone="warning" />
+          <GardenStat label="Total" value={plants.length} tone="accent" />
+        </div>
+        <div
+          className="mt-2 text-center text-[11px] font-medium"
+          style={{ color: captionColor, textShadow: `0 0 12px ${captionColor}` }}
+        >
+          {caption}
+        </div>
       </div>
+
+      {/* scroll hints — older to the left, newer to the right */}
+      {canScroll && scrollX > 24 && (
+        <div className="pointer-events-none absolute bottom-2 left-3 z-10 animate-pulse font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
+          ← older
+        </div>
+      )}
+      {canScroll && scrollX < contentW - dims.w - 24 && (
+        <div className="pointer-events-none absolute bottom-2 right-3 z-10 animate-pulse font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
+          newer →
+        </div>
+      )}
     </div>
   );
 }

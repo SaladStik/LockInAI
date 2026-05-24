@@ -62,14 +62,44 @@ export function LockInPopup() {
             type="button"
             aria-label="Close window"
             onClick={() => window.electronAPI?.windowClose()}
-            className="h-3 w-3 rounded-full bg-destructive/80 transition hover:bg-destructive"
-          />
+            className="flex h-3 w-3 items-center justify-center rounded-full bg-destructive/80 transition hover:bg-destructive"
+          >
+            <svg
+              viewBox="0 0 8 8"
+              width="6"
+              height="6"
+              className="opacity-0 transition-opacity group-hover:opacity-100"
+              aria-hidden="true"
+            >
+              <path
+                d="M1.6 1.6 L6.4 6.4 M6.4 1.6 L1.6 6.4"
+                stroke="oklch(0.18 0.07 25)"
+                strokeWidth="1.1"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
           <button
             type="button"
             aria-label="Minimize window"
             onClick={() => window.electronAPI?.windowMinimize()}
-            className="h-3 w-3 rounded-full bg-warning/80 transition hover:bg-warning"
-          />
+            className="flex h-3 w-3 items-center justify-center rounded-full bg-warning/80 transition hover:bg-warning"
+          >
+            <svg
+              viewBox="0 0 8 8"
+              width="6"
+              height="6"
+              className="opacity-0 transition-opacity group-hover:opacity-100"
+              aria-hidden="true"
+            >
+              <path
+                d="M1.4 4 H6.6"
+                stroke="oklch(0.22 0.09 75)"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
         </div>
         <div className="pointer-events-none font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground select-none">
           LOCK<span className="text-primary">//</span>IN · AI

@@ -4,7 +4,8 @@ import { useCustomApps } from "@/hooks/useCustomApps";
 import { useCustomSites } from "@/hooks/useCustomSites";
 import { useCustomSessions } from "@/hooks/useCustomSessions";
 import { useGarden } from "@/hooks/useGarden";
-import { streakSkin, streakSkinLabel } from "./achievements";
+import { useStats } from "@/hooks/useStats";
+import { buildAchievements, streakSkin, streakSkinLabel } from "./achievements";
 import { isAllowedFocusApp } from "@/lib/apps";
 import { createPlantId, resolvePlantName, type GardenPlant } from "@/lib/garden";
 import { speak, setVoiceMuted, isVoiceMuted } from "@/lib/voice";
@@ -30,9 +31,12 @@ export function useLockInSession() {
   const [apps, setApps] = useState<string[]>(["Cursor", "Browser", "Notion"]);
   const [sites, setSites] = useState<string[]>(["chatgpt.com", "github.com"]);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
-  const [streak] = useState<number>(7);
-  const [xp, setXp] = useState<number>(640);
-  const [stage, setStage] = useState<number>(2);
+  const [stage, setStage] = useState<number>(0);
+  const { stats, recordCompletion, recordBail, markUnlockedSeen } = useStats();
+  const streak = stats.streak;
+  const xp = stats.xp;
+  const totalSessions = stats.totalSessions;
+  const longestSessionMin = stats.longestSessionMin;
   const [breach, setBreach] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
   const [emergencyExit, setEmergencyExit] = useState<boolean>(false);
@@ -40,8 +44,6 @@ export function useLockInSession() {
   // screen so it matches its garden self (same id-seed, stage, rarity, status).
   const [lastPlant, setLastPlant] = useState<GardenPlant | null>(null);
   const { plants: garden, addPlant, clearGarden: clearGardenDb, reload: reloadGarden } = useGarden();
-  const [totalSessions, setTotalSessions] = useState<number>(12);
-  const [longestSessionMin, setLongestSessionMin] = useState<number>(45);
   const [voiceOn, setVoiceOn] = useState<boolean>(!isVoiceMuted());
   const [breachCount, setBreachCount] = useState<number>(0);
   const [hideGemini, setHideGeminiState] = useState<boolean>(() => getHideGemini());
@@ -170,6 +172,28 @@ export function useLockInSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasNativeAppDetection]);
 
+  // Detect newly-unlocked achievements and toast the first one. Dedupe via
+  // `unlockedSeen` in prefs so reloads don't re-celebrate the same one.
+  useEffect(() => {
+    const ctx = {
+      streak,
+      xp,
+      totalSessions,
+      aliveCount: garden.filter((p) => p.status === "alive").length,
+      deadCount: garden.filter((p) => p.status === "dead").length,
+      longestSessionMin,
+    };
+    const newlyUnlocked = buildAchievements(ctx)
+      .filter((a) => a.unlocked && !stats.unlockedSeen.includes(a.id));
+    if (!newlyUnlocked.length) return;
+    const first = newlyUnlocked[0];
+    setToast(`🏆 ${first.name} unlocked`);
+    speak(`Achievement unlocked: ${first.name}.`);
+    window.setTimeout(() => setToast(null), 3200);
+    markUnlockedSeen(newlyUnlocked.map((a) => a.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streak, xp, totalSessions, longestSessionMin, garden]);
+
   // Tick the focus timer
   useEffect(() => {
     if (screen !== "focus") return;
@@ -187,9 +211,7 @@ export function useLockInSession() {
       void addPlant(plant);
       setLastPlant(plant);
       setStage(next);
-      setXp((x) => x + 50);
-      setTotalSessions((n) => n + 1);
-      setLongestSessionMin((m) => Math.max(m, minutes));
+      recordCompletion(minutes);
       setScreen("complete");
       speak("Session complete. Your plant bloomed.");
       return;
@@ -306,7 +328,7 @@ export function useLockInSession() {
     void addPlant(plant);
     setLastPlant(plant);
     setEmergencyExit(true);
-    setTotalSessions((n) => n + 1);
+    recordBail();
     setScreen("complete");
     speak("Streak broken. Your Lockie is disappointed.");
   }

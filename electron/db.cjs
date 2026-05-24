@@ -48,7 +48,7 @@ function init(userDataDir) {
   } catch {
     /* column already exists */
   }
-  seedGardenIfEmpty();
+  // Fresh installs start with an empty garden — the user grows it themselves.
   return db;
 }
 
@@ -215,8 +215,6 @@ function resetAll() {
     DELETE FROM custom_sessions;
     DELETE FROM prefs;
   `);
-  // Re-seed the garden so the welcome screen has something to render.
-  seedGardenIfEmpty();
   return true;
 }
 
