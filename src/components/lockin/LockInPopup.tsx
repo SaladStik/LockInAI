@@ -243,7 +243,9 @@ export function LockInPopup() {
   }
 
   function startSession() {
-    setActivePlantName(resolvePlantName(plantName, garden.map((p) => p.name)));
+    if (!activePlantName) {
+      setActivePlantName(resolvePlantName(plantName, garden.map((p) => p.name)));
+    }
     setSecondsLeft(minutes * 60);
     setEmergencyExit(false);
     setBreachCount(0);
@@ -446,14 +448,17 @@ export function LockInPopup() {
                 detectedHost={hostnameOf(activeApp?.url)}
                 onAddCustom={addCustomSite}
                 onRemoveCustom={removeCustomSite}
-                onNext={() => setScreen("confirm")}
+                onNext={() => {
+                  setActivePlantName(resolvePlantName(plantName, garden.map((p) => p.name)));
+                  setScreen("confirm");
+                }}
               />
             )}
             {screen === "confirm" && (
               <ConfirmScreen
                 subject={subject}
                 plantName={plantName}
-                gardenNames={garden.map((p) => p.name)}
+                sessionPlantName={activePlantName}
                 minutes={minutes}
                 apps={apps}
                 onLock={startSession}
@@ -1083,19 +1088,18 @@ function CustomChip({
 function ConfirmScreen({
   subject,
   plantName,
-  gardenNames,
+  sessionPlantName,
   minutes,
   apps,
   onLock,
 }: {
   subject: string;
   plantName: string;
-  gardenNames: string[];
+  sessionPlantName: string;
   minutes: number;
   apps: string[];
   onLock: () => void;
 }) {
-  const resolvedPlant = resolvePlantName(plantName, gardenNames);
   return (
     <SetupShell step={5} title="Ready to lock in?" plantStage={3} excited>
       <div
@@ -1106,7 +1110,11 @@ function ConfirmScreen({
         <div className="my-3 h-px bg-border" />
         <Row
           label="Plant"
-          value={plantName.trim() ? resolvedPlant : `${resolvedPlant} · picked for you`}
+          value={
+            plantName.trim()
+              ? sessionPlantName
+              : `${sessionPlantName} · picked for you`
+          }
         />
         <div className="my-3 h-px bg-border" />
         <Row label="Duration" value={`${minutes} min`} />
