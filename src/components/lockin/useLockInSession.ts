@@ -31,6 +31,13 @@ export function useLockInSession() {
   const [apps, setApps] = useState<string[]>(["Cursor", "Browser", "Notion"]);
   const [sites, setSites] = useState<string[]>(["chatgpt.com", "claude.ai"]);
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
+  // True between startSession and complete/emergency exit — decoupled from
+  // `screen` so the timer + breach detection keep running while the user is
+  // browsing settings/achievements/garden during a session.
+  const [inSession, setInSession] = useState<boolean>(false);
+  // Where to return after the user closes a transient screen (settings,
+  // achievements, garden) opened during a focus session.
+  const sessionReturnRef = useRef<Screen>("welcome");
   const [stage, setStage] = useState<number>(0);
   const { stats, recordCompletion, recordBail, markUnlockedSeen } = useStats();
   const streak = stats.streak;
@@ -47,7 +54,7 @@ export function useLockInSession() {
   const [voiceOn, setVoiceOn] = useState<boolean>(!isVoiceMuted());
   const [breachCount, setBreachCount] = useState<number>(0);
   const [hideGemini, setHideGeminiState] = useState<boolean>(() => getHideGemini());
-  const MAX_BREACHES = 3;
+  const MAX_BREACHES = 5;
   const breachTimer = useRef<number | null>(null);
   const focusAllowedRef = useRef(true);
   // The app the user was already in when they locked in — don't fire a breach
@@ -145,17 +152,19 @@ export function useLockInSession() {
   const extraAlwaysAllowed = subjectExtraAlwaysAllowedHosts(subject);
 
   // Tell the main process which apps + sites are allowed so it can snap back.
+  // Keyed off `inSession` (not `screen`) so opening settings mid-session
+  // doesn't suspend enforcement.
   useEffect(() => {
     if (!hasNativeAppDetection) return;
-    window.electronAPI?.syncFocusSession(screen === "focus", apps, sites, {
+    window.electronAPI?.syncFocusSession(inSession, apps, sites, {
       hideGemini,
       extraAlwaysAllowed,
     });
-    if (screen !== "focus") {
+    if (!inSession) {
       focusAllowedRef.current = true;
       sessionStartGraceRef.current = null;
     }
-  }, [screen, apps, sites, hasNativeAppDetection, hideGemini, extraAlwaysAllowed]);
+  }, [inSession, apps, sites, hasNativeAppDetection, hideGemini, extraAlwaysAllowed]);
 
   function toggleHideGemini(value: boolean) {
     setHideGemini(value);
@@ -207,7 +216,7 @@ export function useLockInSession() {
 
   // Tick the focus timer
   useEffect(() => {
-    if (screen !== "focus") return;
+    if (!inSession) return;
     if (secondsLeft <= 0) {
       const next = Math.min(4, stage + 1);
       const plant: GardenPlant = {
@@ -223,17 +232,18 @@ export function useLockInSession() {
       setLastPlant(plant);
       setStage(next);
       recordCompletion(minutes);
+      setInSession(false);
       setScreen("complete");
       speak("Session complete. Your plant bloomed.");
       return;
     }
     const t = window.setInterval(() => setSecondsLeft((s) => s - 1), 1000);
     return () => window.clearInterval(t);
-  }, [screen, secondsLeft, stage, activePlantName, plantName, garden, minutes, subject, addPlant]);
+  }, [inSession, secondsLeft, stage, activePlantName, plantName, garden, minutes, subject, addPlant]);
 
   // Focus protection: OS-level app detection in Electron (Windows/macOS/Linux).
   useEffect(() => {
-    if (screen !== "focus" || !hasNativeAppDetection || !activeApp) return;
+    if (!inSession || !hasNativeAppDetection || !activeApp) return;
 
     // Grace: the app the user already had open at lock-in time doesn't count
     // as a breach. The grace clears as soon as they switch to anything else.
@@ -262,11 +272,11 @@ export function useLockInSession() {
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, activeApp, apps, sites, hasNativeAppDetection, extraAlwaysAllowed]);
+  }, [inSession, activeApp, apps, sites, hasNativeAppDetection, extraAlwaysAllowed]);
 
   // Browser fallback when not running inside Electron.
   useEffect(() => {
-    if (screen !== "focus" || hasNativeAppDetection) return;
+    if (!inSession || hasNativeAppDetection) return;
     const onHidden = () => {
       triggerBreach("tab hidden");
       setBreachCount((c) => {
@@ -288,7 +298,7 @@ export function useLockInSession() {
       window.removeEventListener("blur", handleBlur);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, hasNativeAppDetection]);
+  }, [inSession, hasNativeAppDetection]);
 
   function triggerBreach(_reason?: string) {
     setBreach(true);
@@ -320,6 +330,8 @@ export function useLockInSession() {
     sessionStartGraceRef.current = activeApp
       ? `${activeApp.app}|${activeApp.url ?? ""}`
       : null;
+    setInSession(true);
+    sessionReturnRef.current = "focus";
     setScreen("focus");
     setToast("LOCKED IN");
     window.setTimeout(() => setToast(null), 1800);
@@ -340,6 +352,7 @@ export function useLockInSession() {
     setLastPlant(plant);
     setEmergencyExit(true);
     recordBail();
+    setInSession(false);
     setScreen("complete");
     speak("Streak broken. Your Lockie is disappointed.");
   }
@@ -352,7 +365,18 @@ export function useLockInSession() {
   }
 
   const totalSeconds = minutes * 60;
-  const progress = screen === "focus" ? 1 - secondsLeft / totalSeconds : 0;
+  const progress = inSession ? 1 - secondsLeft / totalSeconds : 0;
+
+  /** Open a transient screen (settings/garden/achievements) without ending
+   *  the focus session. Closing it via `returnFromTransient()` jumps back to
+   *  the focus screen instead of welcome. */
+  function openTransient(target: Screen) {
+    if (inSession && screen === "focus") sessionReturnRef.current = "focus";
+    setScreen(target);
+  }
+  function returnFromTransient() {
+    setScreen(inSession ? "focus" : "welcome");
+  }
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
   const ss = String(secondsLeft % 60).padStart(2, "0");
 
@@ -386,6 +410,9 @@ export function useLockInSession() {
     skinLabel,
     activeApp,
     activeAppError,
+    inSession,
+    openTransient,
+    returnFromTransient,
     customApps, addCustomApp, removeCustomApp,
     customSites, addCustomSite, removeCustomSite,
     customSessions,

@@ -116,14 +116,12 @@ export function LockInPopup() {
             {s.voiceOn ? <Volume2 size={11} /> : <VolumeX size={11} />}
           </button>
           <button
-            onClick={() =>
-              setScreen((cur) =>
-                screen === "focus" ? cur : cur === "settings" ? "welcome" : "settings",
-              )
-            }
-            disabled={screen === "focus"}
+            onClick={() => {
+              if (screen === "settings") s.returnFromTransient();
+              else s.openTransient("settings");
+            }}
             aria-label="Settings"
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-secondary/40 text-foreground transition hover:bg-secondary/70 disabled:opacity-30"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-secondary/40 text-foreground transition hover:bg-secondary/70"
           >
             <SettingsIcon size={11} />
           </button>
@@ -166,7 +164,10 @@ export function LockInPopup() {
             className="absolute inset-0 flex min-h-0 flex-col overflow-hidden px-6 pb-6 pt-3"
           >
             {screen === "onboarding" && (
-              <OnboardingScreen onComplete={() => setScreen("welcome")} />
+              <OnboardingScreen
+                onComplete={() => setScreen("welcome")}
+                onSetHideGemini={s.toggleHideGemini}
+              />
             )}
             {screen === "welcome" && (
               <WelcomeScreen
@@ -316,7 +317,7 @@ export function LockInPopup() {
             )}
             {screen === "settings" && (
               <SettingsScreen
-                onBack={() => setScreen("welcome")}
+                onBack={() => s.returnFromTransient()}
                 onClearGarden={s.clearGarden}
                 hideGemini={s.hideGemini}
                 onToggleGemini={s.toggleHideGemini}

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Flame, Sparkles, AlertTriangle } from "lucide-react";
 import { Lockie, type LockieMood } from "@/components/lockin/Lockie";
 import { Plant } from "@/components/lockin/Plant";
@@ -45,6 +47,7 @@ export function FocusScreen({
   maxBreaches: number;
   skin: LockieSkin;
 }) {
+  const [confirmExit, setConfirmExit] = useState(false);
   const lockieMood: LockieMood = warning ? "worried" : "focused";
   const offApp =
     appDetection &&
@@ -145,11 +148,70 @@ export function FocusScreen({
                 : `${maxBreaches - breachCount} breach${maxBreaches - breachCount === 1 ? "" : "es"} remaining`}
         </p>
         <button
-          onClick={onEmergencyExit}
+          onClick={() => setConfirmExit(true)}
           className="group relative flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 text-xs uppercase tracking-[0.3em] text-destructive transition hover:bg-destructive/20"
         >
           <AlertTriangle size={14} /> Emergency exit
         </button>
+
+        <AnimatePresence>
+          {confirmExit && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 flex items-center justify-center px-5"
+            >
+              <button
+                type="button"
+                aria-label="Cancel emergency exit"
+                onClick={() => setConfirmExit(false)}
+                className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 10, filter: "blur(6px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: 6, filter: "blur(4px)" }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="relative z-10 w-full max-w-[300px] rounded-2xl border border-destructive/40 p-4 shadow-popup"
+                style={{
+                  background:
+                    "linear-gradient(180deg, color-mix(in oklab, var(--destructive) 14%, transparent), color-mix(in oklab, var(--background) 92%, transparent))",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={14} className="text-destructive" />
+                  <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-destructive">
+                    Are you sure?
+                  </div>
+                </div>
+                <p className="mt-2 text-[12px] leading-relaxed text-foreground">
+                  This will end your session early. Your plant will die and
+                  your streak resets to zero.
+                </p>
+                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-warning">
+                  Lockie will be sad
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmExit(false)}
+                    className="flex-1 rounded-lg border border-border/50 px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground transition hover:text-foreground"
+                  >
+                    Keep going
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onEmergencyExit}
+                    className="flex-1 rounded-lg border border-destructive/40 bg-destructive/15 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-destructive transition hover:bg-destructive/25"
+                  >
+                    Exit anyway
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {process.env.NODE_ENV !== "production" && (
           <button
             onClick={onSkip}

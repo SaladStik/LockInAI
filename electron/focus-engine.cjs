@@ -409,6 +409,9 @@ function createFocusEngine({ extBridge, isDev, blockedPageUrlFor }) {
           const axTrusted = systemPreferences.isTrustedAccessibilityClient(false);
           if (screen !== "granted") kind = "needs-screen-recording";
           else if (!axTrusted) kind = "needs-accessibility";
+          console.warn(
+            `[active-app] permission probe: screen=${screen} ax=${axTrusted} → kind=${kind}`,
+          );
         }
         // Suppress generic "unknown" errors until they persist — most are
         // transient (timeouts, the helper momentarily can't read a window).
