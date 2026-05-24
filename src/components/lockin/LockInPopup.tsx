@@ -1495,9 +1495,6 @@ function PlantCard({ plant }: { plant: GardenPlant }) {
         <div className="truncate text-[11px] font-medium text-foreground">
           {plant.name}
         </div>
-        <div className="truncate text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
-          {plant.subject} · {plant.days}d
-        </div>
       </div>
     </div>
   );

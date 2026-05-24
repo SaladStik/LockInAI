@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, Play } from "lucide-react";
 import {
+  BRITISH_LADY_PRESET,
   getSelectedVoiceURI,
   listVoices,
   onVoicesChanged,
+  pickBritishLadyVoice,
   previewVoice,
   setSelectedVoice,
 } from "@/lib/voice";
@@ -22,7 +24,15 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
   }, []);
 
   const englishVoices = voices.filter((v) => v.lang.toLowerCase().startsWith("en"));
-  const visible = showAll ? voices : englishVoices.length ? englishVoices : voices;
+  const britishLady = pickBritishLadyVoice();
+  const visible = (showAll ? voices : englishVoices.length ? englishVoices : voices).filter(
+    (v) => !britishLady || v.voiceURI !== britishLady.voiceURI,
+  );
+
+  function isBritishLadySelected() {
+    const sel = getSelectedVoiceURI();
+    return !sel || sel === BRITISH_LADY_PRESET;
+  }
 
   function choose(uri: string | null) {
     setSelected(uri);
@@ -65,11 +75,15 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
       <div className="-mx-2 flex-1 space-y-1.5 overflow-y-auto px-2 pb-1">
         <VoiceRow
-          name="Default (recommended)"
-          lang="auto-selected"
-          isSelected={selected === null}
-          onSelect={() => choose(null)}
-          onPreview={() => preview(null)}
+          name="British lady"
+          lang={
+            britishLady
+              ? `${britishLady.lang} · ${britishLady.name}${britishLady.localService ? " · local" : " · network"}`
+              : "en-GB · auto-selected from your device"
+          }
+          isSelected={isBritishLadySelected()}
+          onSelect={() => choose(BRITISH_LADY_PRESET)}
+          onPreview={() => preview(BRITISH_LADY_PRESET)}
         />
 
         {visible.length === 0 && (
