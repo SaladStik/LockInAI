@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, clipboard, ipcMain, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const db = require("./db.cjs");
@@ -173,9 +173,32 @@ ipcMain.handle("app:reset", () => {
 });
 
 // ---- IPC: extension install / status -------------------------------------
+function getExtensionInstallInfo() {
+  const extensionPath = ensureUserExtension();
+  return {
+    path: extensionPath,
+    connected: extBridge.isConnected ? extBridge.isConnected() : false,
+    installUrl: extensionInstallUrl,
+  };
+}
+
 ipcMain.handle("extension:status", () => ({
   connected: extBridge.isConnected ? extBridge.isConnected() : false,
 }));
+
+ipcMain.handle("extension:get-path", () => getExtensionInstallInfo());
+
+ipcMain.handle("extension:reveal-folder", () => {
+  const extensionPath = ensureUserExtension();
+  if (extensionPath) shell.showItemInFolder(extensionPath);
+  return { path: extensionPath };
+});
+
+ipcMain.handle("extension:copy-path", () => {
+  const extensionPath = ensureUserExtension();
+  if (extensionPath) clipboard.writeText(extensionPath);
+  return { path: extensionPath, copied: Boolean(extensionPath) };
+});
 
 /**
  * Locate the bundled extension. In dev it sits next to the repo; in a
@@ -218,21 +241,21 @@ function ensureUserExtension() {
 }
 
 ipcMain.handle("extension:open-install", async () => {
-  const extensionPath = ensureUserExtension();
+  const info = getExtensionInstallInfo();
   // Reveal the extension folder so the user can pick it from chrome's
   // "Load unpacked" dialog (or drag it directly onto the extensions page).
-  if (extensionPath) shell.showItemInFolder(extensionPath);
+  if (info.path) shell.showItemInFolder(info.path);
   // Open our install page in the user's ACTUAL default browser — `chrome://`
   // URLs only resolve in Chromium browsers, but `http://` always lands in the
   // real default. The page sniffs the user-agent and links to the correct
   // browser-specific extensions URL (chrome://, edge://, vivaldi://, …).
-  const opened = extensionInstallUrl ?? "https://www.google.com/";
+  const opened = info.installUrl ?? "https://www.google.com/";
   try {
     await shell.openExternal(opened);
   } catch (e) {
     console.error("[extension] open install failed:", e?.message ?? e);
   }
-  return { extensionPath, installUrl: extensionInstallUrl };
+  return info;
 });
 
 // ---- IPC: macOS permissions ----------------------------------------------

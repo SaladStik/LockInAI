@@ -46,6 +46,7 @@ lerna-debug.log*
 .env.production.local
 
 # Electron packaging
+release-build/
 release-builds/
 
 # Tauri (in case it's revisited)
