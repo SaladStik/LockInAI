@@ -10,6 +10,7 @@ export function SiteHeader() {
       <nav>
         <a href="/#features">Features</a>
         <a href="/screenshots">Screenshots</a>
+        <a href="/install">macOS&nbsp;help</a>
         <a href="/#download">Download</a>
         <a className="ghbtn" href={BASE} target="_blank" rel="noopener noreferrer">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">

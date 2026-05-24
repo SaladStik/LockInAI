@@ -100,6 +100,8 @@ export default function Page() {
           <p className="platform-note">
             <a href="/screenshots">See it in action →</a>
             {" · "}
+            <a href="/install">macOS blocked it? Fix →</a>
+            {" · "}
             All builds &amp; release notes on{" "}
             <a href={RELEASES} target="_blank" rel="noopener noreferrer">
               GitHub Releases →

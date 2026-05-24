@@ -437,6 +437,117 @@ footer .brand { justify-content: center; margin-bottom: 10px; font-size: 11px; }
   .lb-nav { width: 44px; height: 44px; font-size: 1.6rem; }
 }
 
+/* ---- install / macOS guide ---- */
+.guide {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: rise 0.7s var(--ease-soft) 0.15s both;
+}
+.guide-card {
+  padding: 28px 30px;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, oklch(1 0 0 / 4%), oklch(1 0 0 / 1%));
+  border: 1px solid oklch(1 0 0 / 8%);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+.guide-method {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  color: var(--accent-glow);
+  margin-bottom: 10px;
+}
+.guide-card h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 16px; }
+.guide-card p { color: var(--muted-foreground); line-height: 1.6; }
+.steps {
+  list-style: none;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+}
+.steps li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 44px;
+  line-height: 1.55;
+  color: var(--foreground);
+}
+.steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: -2px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary-foreground);
+  background: var(--gradient-leaf);
+  box-shadow: 0 0 22px -8px color-mix(in oklab, var(--primary) 70%, transparent);
+}
+.steps strong, .guide-card strong { color: var(--foreground); font-weight: 600; }
+.guide-note { margin-top: 14px; font-size: 0.88rem; color: var(--muted-foreground); }
+
+code {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.86em;
+  background: oklch(0.12 0.02 250 / 0.8);
+  border: 1px solid oklch(1 0 0 / 8%);
+  border-radius: 6px;
+  padding: 1px 6px;
+  color: var(--accent-glow);
+}
+.guide-card pre {
+  margin: 16px 0 4px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: oklch(0.1 0.02 250 / 0.9);
+  border: 1px solid oklch(1 0 0 / 10%);
+  overflow-x: auto;
+}
+.guide-card pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary-glow);
+  font-size: 0.85rem;
+  white-space: pre;
+}
+.callout {
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent);
+  background: color-mix(in oklab, var(--accent) 9%, transparent);
+}
+.callout.callout-muted {
+  border-color: oklch(1 0 0 / 10%);
+  background: oklch(1 0 0 / 3%);
+}
+.callout-tag {
+  display: block;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.26em;
+  color: var(--accent-glow);
+  margin-bottom: 8px;
+}
+.callout p { color: var(--foreground); line-height: 1.6; margin: 0; }
+.callout.callout-muted p { color: var(--muted-foreground); }
+.guide-cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 8px; }
+
 @media (max-width: 600px) {
   .topbar nav a:not(.ghbtn) { display: none; }
   .hero { gap: 20px; }
