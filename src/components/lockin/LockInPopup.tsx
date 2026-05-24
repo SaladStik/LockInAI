@@ -485,6 +485,22 @@ export function LockInPopup() {
               <GardenScreen
                 plants={garden}
                 onBack={() => setScreen("welcome")}
+                onAdd={(status) =>
+                  setGarden((g) => [
+                    {
+                      id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                      name: randomPlantName(),
+                      stage:
+                        status === "dead"
+                          ? Math.floor(Math.random() * 3) // 0..2 withered
+                          : 1 + Math.floor(Math.random() * 4), // 1..4 grown
+                      status,
+                      days: 1 + Math.floor(Math.random() * 20),
+                      subject,
+                    },
+                    ...g,
+                  ])
+                }
               />
             )}
             {screen === "achievements" && (
@@ -1345,19 +1361,193 @@ function randomPlantName() {
   return PLANT_NAMES[Math.floor(Math.random() * PLANT_NAMES.length)];
 }
 
+/** Stable 0..1 pseudo-random from a string seed — organic but repeatable layout. */
+function hash01(seed: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 10000) / 10000;
+}
+
 function GardenScreen({
   plants,
   onBack,
+  onAdd,
 }: {
   plants: GardenPlant[];
   onBack: () => void;
+  onAdd: (status: "alive" | "dead") => void;
 }) {
   const alive = plants.filter((p) => p.status === "alive");
   const dead = plants.filter((p) => p.status === "dead");
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lockieRef = useRef<HTMLDivElement>(null);
+  const animatingRef = useRef(false);
+  const pointsRef = useRef<number[]>([]); // plant center x's, for stepping
+  const [dims, setDims] = useState({ w: 352, h: 430 });
+  const [scrollX, setScrollX] = useState(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => setDims({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    // Wheel/trackpad walks Lockie one plant at a time, smoothly gliding between
+    // points (rather than snapping). One step per gesture; locked mid-glide.
+    const onWheel = (e: WheelEvent) => {
+      const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (delta === 0) return;
+      e.preventDefault();
+      if (animatingRef.current) return;
+      const pts = pointsRef.current;
+      if (pts.length < 2) return;
+      const center = el.scrollLeft + el.clientWidth / 2;
+      let idx = 0;
+      let best = Infinity;
+      for (let i = 0; i < pts.length; i++) {
+        const d = Math.abs(pts[i] - center);
+        if (d < best) {
+          best = d;
+          idx = i;
+        }
+      }
+      const target = Math.max(0, Math.min(pts.length - 1, idx + (delta > 0 ? 1 : -1)));
+      const left = Math.max(
+        0,
+        Math.min(el.scrollWidth - el.clientWidth, pts[target] - el.clientWidth / 2),
+      );
+      animatingRef.current = true;
+      el.scrollTo({ left, behavior: "smooth" });
+      window.setTimeout(() => {
+        animatingRef.current = false;
+      }, 420);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, []);
+
+  // On open, start near the NEWEST plants (the right end of the path).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollLeft = el.scrollWidth;
+      setScrollX(el.scrollLeft);
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  // Drive Lockie's vertical position from the LIVE scroll offset every frame, so
+  // he moves continuously along the curve (no React re-render jitter). Rebinds
+  // when the viewport height changes (the curve depends on it).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let raf = 0;
+    const tick = () => {
+      if (lockieRef.current) {
+        const cx = el.scrollLeft + el.clientWidth / 2;
+        const y = dims.h * 0.5 + dims.h * 0.16 * Math.sin(cx / 168);
+        lockieRef.current.style.top = `${y}px`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [dims.h]);
+
+  // Track scroll for mood + hints. Lockie's position is driven per-frame by the
+  // rAF loop below (reading live scrollLeft) so he glides smoothly along the curve.
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollX(e.currentTarget.scrollLeft);
+  };
+
+  const STEP = 62;
+  const START = 50;
+  const contentW = Math.max(dims.w, START + plants.length * STEP + 46);
+
+  // A gentle winding trail that oscillates around the vertical middle.
+  const pathY = (x: number) => dims.h * 0.5 + dims.h * 0.16 * Math.sin(x / 168);
+
+  // Oldest plants nearest the start, newest at the end. New plants are
+  // prepended, so reverse for chronological left-to-right placement.
+  const layout = useMemo(
+    () =>
+      [...plants].reverse().map((p, i) => {
+        const r1 = hash01(p.id);
+        const r2 = hash01(`${p.id}~s`);
+        const r3 = hash01(`${p.id}~o`);
+        return {
+          plant: p,
+          x: START + i * STEP + (r1 - 0.5) * 30, // jittered spacing
+          above: i % 2 === 0 ? r2 > 0.18 : r2 > 0.82, // organic side
+          size: 66 + Math.round(r2 * 30), // 66..96 depth
+          lean: (r3 - 0.5) * 8,
+          offFactor: 0.12 + r3 * 0.1, // distance from path
+        };
+      }),
+    [plants],
+  );
+  pointsRef.current = layout.map((it) => it.x);
+
+  const pathD = useMemo(() => {
+    let d = "";
+    for (let x = 0; x <= contentW; x += 14) {
+      d += `${x === 0 ? "M" : "L"} ${x.toFixed(0)} ${pathY(x).toFixed(1)} `;
+    }
+    return d.trim();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentW, dims.h]);
+
+  const canScroll = contentW > dims.w + 4;
+
+  // Lockie's mood reflects the plants immediately around him as he scrolls.
+  const centerX = scrollX + dims.w / 2;
+  const nearby = layout.filter((it) => Math.abs(it.x - centerX) <= STEP * 1.6);
+  const pool = nearby.length ? nearby : layout;
+  const aliveNear = pool.filter((it) => it.plant.status === "alive").length;
+  const health = pool.length ? aliveNear / pool.length : 1;
+  const mood: LockieMood =
+    plants.length === 0
+      ? "curious"
+      : health >= 0.999
+        ? aliveNear >= 2
+          ? "ecstatic"
+          : "excited"
+        : health >= 0.66
+          ? "content"
+          : health >= 0.45
+            ? "idle"
+            : health >= 0.25
+              ? "worried"
+              : "sad";
+  const caption =
+    plants.length === 0
+      ? "Plant your first seed"
+      : mood === "ecstatic"
+        ? "Lockie is ecstatic!"
+        : mood === "excited"
+          ? "Lockie is thriving"
+          : mood === "content"
+            ? "Lockie is content"
+            : mood === "idle"
+              ? "Lockie is calm"
+              : mood === "worried"
+                ? "Lockie is worried"
+                : "Lockie mourns the fallen";
+  const captionColor = health >= 0.45 ? "var(--primary-glow)" : "var(--warning)";
+
   return (
     <div className="flex h-full flex-col gap-3">
-      {/* Header */}
+      {/* header */}
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
@@ -1366,59 +1556,188 @@ function GardenScreen({
           <ArrowLeft size={12} /> Back
         </button>
         <h2 className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary-glow">
-          Your garden
+          Your forest
         </h2>
         <div className="w-12" />
       </div>
 
-      {/* Stats */}
+      {/* stats */}
       <div className="flex gap-2">
         <GardenStat label="Alive" value={alive.length} tone="primary" />
         <GardenStat label="Lost" value={dead.length} tone="warning" />
         <GardenStat label="Total" value={plants.length} tone="accent" />
       </div>
 
-      {/* Scrollable grid */}
-      <div className="-mx-2 flex-1 overflow-y-auto px-2 pb-2">
-        {alive.length > 0 && (
-          <>
-            <SectionLabel>Thriving</SectionLabel>
-            <div className="grid grid-cols-3 gap-2">
-              {alive.map((p) => (
-                <PlantCard key={p.id} plant={p} />
-              ))}
-            </div>
-          </>
+      {/* mood caption */}
+      <div
+        className="text-center text-[11px] font-medium"
+        style={{ color: captionColor, textShadow: `0 0 12px ${captionColor}` }}
+      >
+        {caption}
+      </div>
+
+      {/* dev controls */}
+      <div className="flex items-center justify-center gap-2">
+        <button
+          onClick={() => onAdd("alive")}
+          className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.25em] text-primary-glow transition hover:bg-primary/20"
+        >
+          <Plus size={10} /> Living
+        </button>
+        <button
+          onClick={() => onAdd("dead")}
+          className="flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.25em] text-warning transition hover:bg-warning/20"
+        >
+          <Plus size={10} /> Dead
+        </button>
+      </div>
+
+      {/* winding pathway — horizontal scroll */}
+      <div className="relative -mx-6 flex-1 overflow-hidden">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="absolute inset-0 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: "none" }}
+        >
+          <div className="relative h-full" style={{ width: contentW }}>
+            <svg className="absolute inset-0" width={contentW} height={dims.h}>
+              <defs>
+                <linearGradient id="garden-trail" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="oklch(0.6 0.14 200)" />
+                  <stop offset="100%" stopColor="oklch(0.62 0.16 158)" />
+                </linearGradient>
+              </defs>
+              {/* distant foliage — faint scattered blobs for depth */}
+              {Array.from({ length: Math.ceil(contentW / 70) }).map((_, k) => {
+                const fx = k * 70 + hash01(`fx${k}`) * 64;
+                const fy = pathY(fx) + (hash01(`fy${k}`) - 0.5) * dims.h * 0.78;
+                const fr = 9 + hash01(`fr${k}`) * 20;
+                return (
+                  <circle
+                    key={k}
+                    cx={fx}
+                    cy={fy}
+                    r={fr}
+                    fill="color-mix(in oklab, var(--primary) 7%, transparent)"
+                  />
+                );
+              })}
+              {/* soft wide dirt trail */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke="color-mix(in oklab, var(--primary) 15%, transparent)"
+                strokeWidth="26"
+                strokeLinecap="round"
+              />
+              {/* glowing dashed centerline */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke="url(#garden-trail)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray="2 11"
+                opacity="0.9"
+                style={{ filter: "drop-shadow(0 0 5px oklch(0.7 0.16 200))" }}
+              />
+            </svg>
+
+            {/* plants scattered organically along the path like a forest */}
+            {layout.map((it) => {
+              const y = pathY(it.x) + (it.above ? -1 : 1) * (dims.h * it.offFactor + 16);
+              return (
+                <GardenSprite
+                  key={it.plant.id}
+                  plant={it.plant}
+                  x={it.x}
+                  y={y}
+                  size={it.size}
+                  lean={it.lean}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Lockie — stays centered while the world scrolls, floating along the curve */}
+        <div
+          ref={lockieRef}
+          className="pointer-events-none absolute z-10"
+          style={{
+            left: "50%",
+            transform: "translate(-50%, -62%)",
+          }}
+        >
+          <Lockie mood={mood} size={74} skin="none" />
+        </div>
+
+        {/* scroll hints — older to the left, newer to the right */}
+        {canScroll && scrollX > 24 && (
+          <div className="pointer-events-none absolute bottom-2 left-3 z-10 animate-pulse font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
+            ← older
+          </div>
         )}
-        {dead.length > 0 && (
-          <>
-            <SectionLabel className="mt-4">In memoriam</SectionLabel>
-            <div className="grid grid-cols-3 gap-2">
-              {dead.map((p) => (
-                <PlantCard key={p.id} plant={p} />
-              ))}
-            </div>
-          </>
+        {canScroll && scrollX < contentW - dims.w - 24 && (
+          <div className="pointer-events-none absolute bottom-2 right-3 z-10 animate-pulse font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
+            newer →
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function SectionLabel({
-  children,
-  className = "",
+function GardenSprite({
+  plant,
+  x,
+  y,
+  size = 84,
+  lean = 0,
 }: {
-  children: React.ReactNode;
-  className?: string;
+  plant: GardenPlant;
+  x: number;
+  y: number;
+  size?: number;
+  lean?: number;
 }) {
+  const dead = plant.status === "dead";
   return (
     <div
-      className={`mb-2 flex items-center gap-2 text-[9px] uppercase tracking-[0.4em] text-muted-foreground ${className}`}
+      className="absolute flex flex-col items-center"
+      style={{
+        left: x,
+        top: y,
+        transform: `translate(-50%, -100%) rotate(${lean}deg)`,
+        transformOrigin: "bottom center",
+        width: size + 12,
+      }}
     >
-      <span className="h-px flex-1 bg-border" />
-      <span>{children}</span>
-      <span className="h-px flex-1 bg-border" />
+      <div
+        style={{
+          filter: dead ? "grayscale(0.85) brightness(0.6)" : undefined,
+          opacity: dead ? 0.72 : 1,
+        }}
+      >
+        <Plant stage={plant.stage} size={size} health={dead ? 0.15 : 1} />
+      </div>
+      <div className="-mt-1 flex items-center gap-1">
+        {dead && (
+          <span className="font-mono text-[10px]" style={{ color: "var(--warning)" }}>
+            †
+          </span>
+        )}
+        <span
+          className="truncate text-[10px] font-medium"
+          style={{
+            color: dead ? "var(--muted-foreground)" : "var(--foreground)",
+            maxWidth: 84,
+          }}
+        >
+          {plant.name}
+        </span>
+      </div>
     </div>
   );
 }
@@ -1454,48 +1773,6 @@ function GardenStat({
       <span className="text-[9px] uppercase tracking-[0.3em] text-muted-foreground">
         {label}
       </span>
-    </div>
-  );
-}
-
-function PlantCard({ plant }: { plant: GardenPlant }) {
-  const dead = plant.status === "dead";
-  return (
-    <div
-      className="glass relative flex flex-col items-center overflow-hidden rounded-xl px-2 pb-2 pt-1"
-      style={{
-        boxShadow: dead
-          ? "0 0 18px -10px var(--warning)"
-          : "0 0 22px -10px var(--primary)",
-        opacity: dead ? 0.65 : 1,
-      }}
-    >
-      {dead && (
-        <span
-          className="absolute right-1.5 top-1.5 rounded-full px-1.5 py-px font-mono text-[8px] uppercase tracking-[0.2em]"
-          style={{
-            background: "color-mix(in oklab, var(--warning) 20%, transparent)",
-            color: "var(--warning)",
-          }}
-        >
-          †
-        </span>
-      )}
-      <div
-        className="flex h-20 w-full items-end justify-center"
-        style={{ filter: dead ? "grayscale(0.7) brightness(0.7)" : undefined }}
-      >
-        <Plant
-          stage={plant.stage}
-          size={72}
-          health={dead ? 0.2 : 1}
-        />
-      </div>
-      <div className="mt-1 w-full text-center">
-        <div className="truncate text-[11px] font-medium text-foreground">
-          {plant.name}
-        </div>
-      </div>
     </div>
   );
 }

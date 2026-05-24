@@ -2,7 +2,15 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import type { LockieSkin } from "./achievements";
 
-export type LockieMood = "idle" | "curious" | "excited" | "focused" | "worried" | "sad";
+export type LockieMood =
+  | "idle"
+  | "curious"
+  | "content"
+  | "excited"
+  | "ecstatic"
+  | "focused"
+  | "worried"
+  | "sad";
 
 interface LockieProps {
   mood?: LockieMood;
@@ -35,14 +43,23 @@ export function Lockie({ mood = "idle", size = 90, skin = "none" }: LockieProps)
       className="relative inline-block"
       style={{ width: size, height: size }}
       animate={
-        mood === "excited"
-          ? { y: [-3, -10, -3], rotate: [-4, 4, -4] }
-          : mood === "worried"
-            ? { x: [-2, 2, -2, 2, 0] }
-            : { y: [-3, -8, -3] }
+        mood === "ecstatic"
+          ? { y: [-4, -16, -4], rotate: [-8, 8, -8], scale: [1, 1.06, 1] }
+          : mood === "excited"
+            ? { y: [-3, -10, -3], rotate: [-4, 4, -4] }
+            : mood === "worried"
+              ? { x: [-2, 2, -2, 2, 0] }
+              : { y: [-3, -8, -3] }
       }
       transition={{
-        duration: mood === "excited" ? 1.2 : mood === "worried" ? 0.4 : 3.8,
+        duration:
+          mood === "ecstatic"
+            ? 0.85
+            : mood === "excited"
+              ? 1.2
+              : mood === "worried"
+                ? 0.4
+                : 3.8,
         repeat: Infinity,
         ease: "easeInOut",
       }}
@@ -199,8 +216,12 @@ function Eye({ cx, cy, blink, mood }: { cx: number; cy: number; blink: boolean; 
 
 function mouthPath(mood: LockieMood) {
   switch (mood) {
+    case "ecstatic":
+      return "M40 60 Q50 77 60 60";
     case "excited":
       return "M42 62 Q50 70 58 62";
+    case "content":
+      return "M44 62 Q50 69 56 62";
     case "curious":
       return "M44 63 Q50 67 56 63";
     case "worried":
@@ -224,6 +245,22 @@ function moodPalette(mood: LockieMood) {
         dark: "oklch(0.55 0.14 55)",
         ring: "oklch(0.85 0.16 70)",
         glow: "color-mix(in oklab, oklch(0.82 0.16 75) 55%, transparent)",
+      };
+    case "ecstatic":
+      return {
+        light: "oklch(0.97 0.16 150)",
+        base: "oklch(0.85 0.21 158)",
+        dark: "oklch(0.55 0.18 165)",
+        ring: "oklch(0.9 0.2 155)",
+        glow: "color-mix(in oklab, oklch(0.85 0.22 155) 80%, transparent)",
+      };
+    case "content":
+      return {
+        light: "oklch(0.95 0.11 190)",
+        base: "oklch(0.83 0.15 195)",
+        dark: "oklch(0.52 0.13 210)",
+        ring: "oklch(0.85 0.15 195)",
+        glow: "color-mix(in oklab, oklch(0.82 0.16 195) 60%, transparent)",
       };
     case "excited":
       return {
