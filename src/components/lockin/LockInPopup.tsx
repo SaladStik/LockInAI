@@ -1407,8 +1407,7 @@ function GardenScreen({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const lockieRef = useRef<HTMLDivElement>(null);
-  const animatingRef = useRef(false);
-  const pointsRef = useRef<number[]>([]); // plant center x's, for stepping
+  const targetRef = useRef(0); // desired scrollLeft; eased toward each frame
   const [dims, setDims] = useState({ w: 352, h: 430 });
   const [scrollX, setScrollX] = useState(0);
 
@@ -1419,35 +1418,14 @@ function GardenScreen({
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    // Wheel/trackpad walks Lockie one plant at a time, smoothly gliding between
-    // points (rather than snapping). One step per gesture; locked mid-glide.
+    // Wheel/trackpad just feeds a scroll target; the rAF loop eases toward it,
+    // so scrolling is free and smooth (no snapping, no lock).
     const onWheel = (e: WheelEvent) => {
       const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
       if (delta === 0) return;
       e.preventDefault();
-      if (animatingRef.current) return;
-      const pts = pointsRef.current;
-      if (pts.length < 2) return;
-      const center = el.scrollLeft + el.clientWidth / 2;
-      let idx = 0;
-      let best = Infinity;
-      for (let i = 0; i < pts.length; i++) {
-        const d = Math.abs(pts[i] - center);
-        if (d < best) {
-          best = d;
-          idx = i;
-        }
-      }
-      const target = Math.max(0, Math.min(pts.length - 1, idx + (delta > 0 ? 1 : -1)));
-      const left = Math.max(
-        0,
-        Math.min(el.scrollWidth - el.clientWidth, pts[target] - el.clientWidth / 2),
-      );
-      animatingRef.current = true;
-      el.scrollTo({ left, behavior: "smooth" });
-      window.setTimeout(() => {
-        animatingRef.current = false;
-      }, 420);
+      const max = el.scrollWidth - el.clientWidth;
+      targetRef.current = Math.max(0, Math.min(max, targetRef.current + delta));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
@@ -1461,23 +1439,27 @@ function GardenScreen({
     const el = scrollRef.current;
     if (!el) return;
     const id = requestAnimationFrame(() => {
-      el.scrollLeft = el.scrollWidth;
-      setScrollX(el.scrollLeft);
+      const max = el.scrollWidth - el.clientWidth;
+      el.scrollLeft = max;
+      targetRef.current = max;
+      setScrollX(max);
     });
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // Drive Lockie's vertical position from the LIVE scroll offset every frame, so
-  // he moves continuously along the curve (no React re-render jitter). Rebinds
-  // when the viewport height changes (the curve depends on it).
+  // Single rAF loop: ease the scroll toward the wheel target AND glue Lockie to
+  // the curve at the live scroll position, so he walks smoothly along the path.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     let raf = 0;
     const tick = () => {
+      const cur = el.scrollLeft;
+      const diff = targetRef.current - cur;
+      if (Math.abs(diff) > 0.5) el.scrollLeft = cur + diff * 0.18;
       if (lockieRef.current) {
         const cx = el.scrollLeft + el.clientWidth / 2;
-        const y = dims.h * 0.5 + dims.h * 0.16 * Math.sin(cx / 168);
+        const y = dims.h * 0.5 + dims.h * 0.2 * Math.sin(cx / 120);
         lockieRef.current.style.top = `${y}px`;
       }
       raf = requestAnimationFrame(tick);
@@ -1496,8 +1478,9 @@ function GardenScreen({
   const START = 50;
   const contentW = Math.max(dims.w, START + plants.length * STEP + 46);
 
-  // A gentle winding trail that oscillates around the vertical middle.
-  const pathY = (x: number) => dims.h * 0.5 + dims.h * 0.16 * Math.sin(x / 168);
+  // A winding trail that oscillates around the vertical middle (must match the
+  // curve used to position Lockie in the rAF loop above).
+  const pathY = (x: number) => dims.h * 0.5 + dims.h * 0.2 * Math.sin(x / 120);
 
   // Oldest plants nearest the start, newest at the end. New plants are
   // prepended, so reverse for chronological left-to-right placement.
@@ -1518,7 +1501,6 @@ function GardenScreen({
       }),
     [plants],
   );
-  pointsRef.current = layout.map((it) => it.x);
 
   const pathD = useMemo(() => {
     let d = "";
