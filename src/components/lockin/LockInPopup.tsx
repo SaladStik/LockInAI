@@ -186,6 +186,7 @@ export function LockInPopup() {
             )}
             {screen === "sites" && (
               <SitesScreen
+                subject={s.subject}
                 sites={s.sites}
                 setSites={s.setSites}
                 customSites={s.customSites}

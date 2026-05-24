@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Plus, X, ChevronRight } from "lucide-react";
 import { SetupShell, Chip, CustomChip, PrimaryButton } from "@/components/lockin/primitives";
 import { ALL_SITES } from "@/components/lockin/constants";
-import { ALWAYS_ALLOWED_HOSTS, normalizeSiteHost } from "@/lib/apps";
+import { allAlwaysAllowedHosts, normalizeSiteHost } from "@/lib/apps";
 import type { CustomSite } from "@/types/electron";
 
 export function SitesScreen({
+  subject,
   sites,
   setSites,
   customSites,
@@ -14,6 +15,7 @@ export function SitesScreen({
   onRemoveCustom,
   onNext,
 }: {
+  subject: string;
   sites: string[];
   setSites: (s: string[]) => void;
   customSites: CustomSite[];
@@ -96,7 +98,7 @@ export function SitesScreen({
           always allowed
         </div>
         <div className="mt-0.5 text-[10px] text-muted-foreground">
-          {ALWAYS_ALLOWED_HOSTS.join(" · ")} · new tab pages
+          {allAlwaysAllowedHosts(subject).join(" · ")} · new tab pages
         </div>
       </div>
 

@@ -87,9 +87,10 @@ function effectiveAllowedHosts(allowedApps = [], allowedSites = []) {
  * session: always-allowed defaults + user sites + site-like app hosts. Shared
  * with the companion extension so it can filter search results client-side.
  */
-function allowedHostsFor(allowedApps = [], allowedSites = []) {
+function allowedHostsFor(allowedApps = [], allowedSites = [], extraAlwaysAllowed = []) {
   const hosts = [
     ...ALWAYS_ALLOWED_HOSTS,
+    ...extraAlwaysAllowed,
     ...effectiveAllowedHosts(allowedApps, allowedSites),
   ]
     .map((h) => String(h).toLowerCase().replace(/^www\./, "").trim())
@@ -132,6 +133,17 @@ const SYSTEM_EXE_PATTERNS = [
 
 // Sites the user can always reach — search, reference, browser new-tab pages.
 const ALWAYS_ALLOWED_HOSTS = ["google.com", "wikipedia.org"];
+
+/** Reference sites always allowed during Coding sessions (like Google). */
+const CODING_DOC_HOSTS = [
+  "github.com",
+  "stackoverflow.com",
+  "developer.mozilla.org",
+];
+
+function subjectExtraAlwaysAllowedHosts(subject) {
+  return subject === "Coding" ? CODING_DOC_HOSTS : [];
+}
 
 /** Browsers we can read/navigate via the address bar on Windows. */
 function isSupportedBrowser(appName, exePath = "") {
@@ -186,7 +198,7 @@ function isOwnApp(snapshot) {
  * @param {string | null | undefined} url
  * @param {string[]} allowedSites — user-picked hostnames
  */
-function isSiteAllowed(url, allowedSites = []) {
+function isSiteAllowed(url, allowedSites = [], extraAlwaysAllowed = []) {
   if (!url) return true;
   if (NEW_TAB_PATTERNS.some((re) => re.test(url))) return true;
   let parsed;
@@ -203,6 +215,7 @@ function isSiteAllowed(url, allowedSites = []) {
   if (!host) return true;
   const allChecks = [
     ...ALWAYS_ALLOWED_HOSTS,
+    ...extraAlwaysAllowed,
     ...allowedSites.map((s) => String(s).toLowerCase().replace(/^www\./, "")),
   ];
   return allChecks.some((h) => {
@@ -216,7 +229,7 @@ function isSiteAllowed(url, allowedSites = []) {
  * @param {string[]} allowedApps
  * @param {string[]} [allowedSites]
  */
-function isAllowedFocusApp(snapshot, allowedApps, allowedSites = []) {
+function isAllowedFocusApp(snapshot, allowedApps, allowedSites = [], extraAlwaysAllowed = []) {
   if (isOwnApp(snapshot)) return true;
   if (isSystemApp(snapshot)) return true;
 
@@ -226,7 +239,11 @@ function isAllowedFocusApp(snapshot, allowedApps, allowedSites = []) {
   // neutral ground (isSiteAllowed returns true for those). Site-like allowed
   // apps (YouTube, Notion, …) contribute their hosts.
   if (snapshot.url) {
-    return isSiteAllowed(snapshot.url, effectiveAllowedHosts(allowedApps, allowedSites));
+    return isSiteAllowed(
+      snapshot.url,
+      effectiveAllowedHosts(allowedApps, allowedSites),
+      extraAlwaysAllowed,
+    );
   }
 
   // Native app (no URL): judge by app match.
@@ -252,4 +269,6 @@ module.exports = {
   isBrowserSnapshot,
   allowedHostsFor,
   ALWAYS_ALLOWED_HOSTS,
+  CODING_DOC_HOSTS,
+  subjectExtraAlwaysAllowedHosts,
 };

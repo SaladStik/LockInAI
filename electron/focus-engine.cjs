@@ -29,7 +29,12 @@ function createFocusEngine({ extBridge, isDev, blockedPageUrlFor }) {
 
   let lastSnapshot = null;
   let lastError = null;
-  let focusSession = { active: false, allowedApps: [], allowedSites: [] };
+  let focusSession = {
+    active: false,
+    allowedApps: [],
+    allowedSites: [],
+    extraAlwaysAllowed: [],
+  };
   // Captured at session start so the app the user was in *before* locking in
   // doesn't count as a breach until they actually switch to it again.
   let sessionStartGraceKey = null;
@@ -122,7 +127,15 @@ function createFocusEngine({ extBridge, isDev, blockedPageUrlFor }) {
       for (const w of windows) {
         if (!w?.owner?.name || isOurApp(w)) continue;
         const snap = snapshotFromInfo(w);
-        if (!isAllowedFocusApp(snap, focusSession.allowedApps, focusSession.allowedSites)) continue;
+        if (
+          !isAllowedFocusApp(
+            snap,
+            focusSession.allowedApps,
+            focusSession.allowedSites,
+            focusSession.extraAlwaysAllowed,
+          )
+        )
+          continue;
         if (typeof w.id === "number" && focusWindowById(w.id)) {
           lastAllowedWindowId = w.id;
           return { windowId: w.id, refocused: null };
@@ -150,6 +163,9 @@ function createFocusEngine({ extBridge, isDev, blockedPageUrlFor }) {
       active: Boolean(payload?.active),
       allowedApps: Array.isArray(payload?.allowedApps) ? payload.allowedApps : [],
       allowedSites: Array.isArray(payload?.allowedSites) ? payload.allowedSites : [],
+      extraAlwaysAllowed: Array.isArray(payload?.extraAlwaysAllowed)
+        ? payload.extraAlwaysAllowed
+        : [],
       hideGemini: Boolean(payload?.hideGemini),
     };
     if (focusSession.active && !wasActive) {
@@ -167,6 +183,7 @@ function createFocusEngine({ extBridge, isDev, blockedPageUrlFor }) {
           lastSnapshot,
           focusSession.allowedApps,
           focusSession.allowedSites,
+          focusSession.extraAlwaysAllowed,
         );
         if (isBrowser && !allowedNow) {
           const blocked = blockedPageUrlFor(focusSession.allowedSites);
@@ -202,7 +219,11 @@ function createFocusEngine({ extBridge, isDev, blockedPageUrlFor }) {
         : null,
       // Allowed hostnames so the extension can filter search results client-side.
       allowedHosts: focusSession.active
-        ? allowedHostsFor(focusSession.allowedApps, focusSession.allowedSites)
+        ? allowedHostsFor(
+            focusSession.allowedApps,
+            focusSession.allowedSites,
+            focusSession.extraAlwaysAllowed,
+          )
         : [],
       // Whether to hide Google's AI Overview (Gemini) on the re-skinned results page.
       hideGemini: focusSession.hideGemini,
@@ -241,7 +262,12 @@ function createFocusEngine({ extBridge, isDev, blockedPageUrlFor }) {
           const ownApp = isOurApp(info);
           const allowed =
             !ownApp &&
-            isAllowedFocusApp(snapshot, focusSession.allowedApps, focusSession.allowedSites);
+            isAllowedFocusApp(
+              snapshot,
+              focusSession.allowedApps,
+              focusSession.allowedSites,
+              focusSession.extraAlwaysAllowed,
+            );
 
           // Grace check — don't penalize the app the user already had open
           // before locking in. Clear the grace once they switch to anything else.

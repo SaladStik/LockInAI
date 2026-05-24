@@ -109,6 +109,21 @@ const SYSTEM_EXE_PATTERNS = [
 
 export const ALWAYS_ALLOWED_HOSTS = ["google.com", "wikipedia.org"];
 
+/** Reference sites always allowed during Coding sessions (like Google). */
+export const CODING_DOC_HOSTS = [
+  "github.com",
+  "stackoverflow.com",
+  "developer.mozilla.org",
+];
+
+export function subjectExtraAlwaysAllowedHosts(subject: string): string[] {
+  return subject === "Coding" ? CODING_DOC_HOSTS : [];
+}
+
+export function allAlwaysAllowedHosts(subject: string): string[] {
+  return [...ALWAYS_ALLOWED_HOSTS, ...subjectExtraAlwaysAllowedHosts(subject)];
+}
+
 const NEW_TAB_PATTERNS = [
   /^chrome:\/\/new[\w-]*tab/i,
   /^edge:\/\/new[\w-]*tab/i,
@@ -145,6 +160,7 @@ export function isOwnApp(snapshot: ActiveAppSnapshot): boolean {
 export function isSiteAllowed(
   url: string | null | undefined,
   allowedSites: string[] = [],
+  extraAlwaysAllowed: string[] = [],
 ): boolean {
   if (!url) return true;
   if (NEW_TAB_PATTERNS.some((re) => re.test(url))) return true;
@@ -161,6 +177,7 @@ export function isSiteAllowed(
   if (!host) return true;
   const allChecks = [
     ...ALWAYS_ALLOWED_HOSTS,
+    ...extraAlwaysAllowed,
     ...allowedSites.map((s) => s.toLowerCase().replace(/^www\./, "")),
   ];
   return allChecks.some((h) => {
@@ -194,6 +211,7 @@ export function isAllowedFocusApp(
   snapshot: ActiveAppSnapshot,
   allowedApps: string[],
   allowedSites: string[] = [],
+  extraAlwaysAllowed: string[] = [],
 ): boolean {
   if (isOwnApp(snapshot)) return true;
   if (isSystemApp(snapshot)) return true;
@@ -202,7 +220,11 @@ export function isAllowedFocusApp(
   // which browser binary it is. New-tab / our own blocked page are neutral
   // (isSiteAllowed returns true). Site-like allowed apps contribute their hosts.
   if (snapshot.url) {
-    return isSiteAllowed(snapshot.url, effectiveAllowedHosts(allowedApps, allowedSites));
+    return isSiteAllowed(
+      snapshot.url,
+      effectiveAllowedHosts(allowedApps, allowedSites),
+      extraAlwaysAllowed,
+    );
   }
 
   // Native app (no URL): judge by app match.

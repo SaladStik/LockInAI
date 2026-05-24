@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
       active,
       allowedApps,
       allowedSites,
+      extraAlwaysAllowed: Array.isArray(opts?.extraAlwaysAllowed)
+        ? opts.extraAlwaysAllowed
+        : [],
       hideGemini: Boolean(opts?.hideGemini),
     }),
   onFocusRestored: (cb) => {
