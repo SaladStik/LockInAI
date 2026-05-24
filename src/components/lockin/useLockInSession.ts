@@ -35,7 +35,7 @@ export function useLockInSession() {
   // The exact plant grown by the session just finished — shown on the complete
   // screen so it matches its garden self (same id-seed, stage, rarity, status).
   const [lastPlant, setLastPlant] = useState<GardenPlant | null>(null);
-  const { plants: garden, addPlant, clearGarden } = useGarden();
+  const { plants: garden, addPlant, clearGarden: clearGardenDb, reload: reloadGarden } = useGarden();
   const [totalSessions, setTotalSessions] = useState<number>(12);
   const [longestSessionMin, setLongestSessionMin] = useState<number>(45);
   const [voiceOn, setVoiceOn] = useState<boolean>(!isVoiceMuted());
@@ -53,16 +53,18 @@ export function useLockInSession() {
   const skin = streakSkin(streak);
   const skinLabel = streakSkinLabel(skin);
   const { snapshot: activeApp, error: activeAppError } = useActiveApp();
-  const { apps: customApps, addApp: addCustomApp, removeApp: removeCustomApp } = useCustomApps();
+  const { apps: customApps, addApp: addCustomApp, removeApp: removeCustomApp, reload: reloadCustomApps } = useCustomApps();
   const {
     sites: customSites,
     addSite: addCustomSite,
     removeSite: removeCustomSite,
+    reload: reloadCustomSites,
   } = useCustomSites();
   const {
     sessions: customSessions,
     addSession: addCustomSession,
     removeSession: removeCustomSession,
+    reload: reloadCustomSessions,
   } = useCustomSessions();
 
   function selectBuiltInSubject(name: string) {
@@ -95,6 +97,22 @@ export function useLockInSession() {
       selectBuiltInSubject("Coding");
     }
     await removeCustomSession(id);
+  }
+
+  async function clearGarden() {
+    await clearGardenDb();
+    await Promise.all([
+      reloadGarden(),
+      reloadCustomApps(),
+      reloadCustomSites(),
+      reloadCustomSessions(),
+    ]);
+    selectBuiltInSubject("Coding");
+    setApps(["Chrome", "VSCode", "Notion"]);
+    setSites(["chatgpt.com", "github.com"]);
+    setPlantName("");
+    setActivePlantName("");
+    setScreen("welcome");
   }
 
   // Tell the main process which apps + sites are allowed so it can snap back.

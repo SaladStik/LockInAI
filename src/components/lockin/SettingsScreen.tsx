@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, Play } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   BRITISH_LADY_PRESET,
   getSelectedVoiceURI,
@@ -26,6 +27,7 @@ export function SettingsScreen({
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>(() => listVoices());
   const [selected, setSelected] = useState<string | null>(() => getSelectedVoiceURI());
   const [showAll, setShowAll] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
@@ -55,24 +57,30 @@ export function SettingsScreen({
     previewVoice(SAMPLE_PHRASE, voiceURI);
   }
 
-  async function handleResetApp() {
-    const ok = window.confirm(
-      "Reset your garden? All plants will be permanently deleted. This cannot be undone.",
-    );
-    if (!ok) return;
+  function openClearConfirm() {
+    setResetError(null);
+    setShowClearConfirm(true);
+  }
+
+  function closeClearConfirm() {
+    if (!resetting) setShowClearConfirm(false);
+  }
+
+  async function confirmClearGarden() {
     setResetting(true);
     setResetError(null);
     try {
       await onClearGarden();
+      setShowClearConfirm(false);
     } catch (e) {
-      setResetError(e instanceof Error ? e.message : "Couldn't reset garden");
+      setResetError(e instanceof Error ? e.message : "Couldn't clear garden");
     } finally {
       setResetting(false);
     }
   }
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="relative flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
@@ -167,23 +175,84 @@ export function SettingsScreen({
         </div>
 
         <div className="mt-4 border-t border-border/40 pt-4">
-          <div className="text-[11px] font-medium text-foreground">Reset app</div>
+          <div className="text-[11px] font-medium text-foreground">Clear garden</div>
           <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-            Clears your entire garden. New plants will grow as you complete future sessions.
+            Clears your garden, custom study sessions, custom apps, and custom websites. Setup
+            choices return to defaults.
           </p>
           {resetError && (
             <p className="mt-2 text-[10px] text-destructive">{resetError}</p>
           )}
           <button
             type="button"
-            onClick={handleResetApp}
+            onClick={openClearConfirm}
             disabled={resetting}
             className="mt-3 w-full rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-destructive transition hover:bg-destructive/20 disabled:opacity-50"
           >
-            {resetting ? "Resetting…" : "Reset garden"}
+            {resetting ? "Clearing…" : "Clear Garden"}
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showClearConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 flex items-center justify-center px-5"
+          >
+            <button
+              type="button"
+              aria-label="Cancel clear garden"
+              onClick={closeClearConfirm}
+              disabled={resetting}
+              className="absolute inset-0 bg-background/75 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 10, filter: "blur(6px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: 6, filter: "blur(4px)" }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="relative z-10 w-full max-w-[300px] rounded-2xl border border-primary-glow/40 bg-primary/5 p-3 shadow-popup"
+              style={{
+                background:
+                  "linear-gradient(180deg, color-mix(in oklab, var(--primary) 10%, transparent), color-mix(in oklab, var(--background) 92%, transparent))",
+              }}
+            >
+              <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-primary-glow">
+                Clear garden
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                This permanently deletes your garden, custom study sessions, custom apps, and custom
+                websites. Setup choices return to defaults.
+              </p>
+              <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.2em] text-warning">
+                This cannot be undone
+              </p>
+              {resetError && <p className="mt-2 text-[10px] text-destructive">{resetError}</p>}
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeClearConfirm}
+                  disabled={resetting}
+                  className="flex-1 rounded-lg border border-border/50 px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmClearGarden}
+                  disabled={resetting}
+                  className="flex-1 rounded-lg border border-destructive/40 bg-destructive/15 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-destructive transition hover:bg-destructive/25 disabled:opacity-50"
+                >
+                  {resetting ? "Clearing…" : "Clear Garden"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

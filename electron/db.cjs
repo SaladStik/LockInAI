@@ -192,7 +192,12 @@ function addGardenPlant(plant) {
 
 function clearGardenPlants() {
   if (!db) throw new Error("db not initialized");
-  db.prepare("DELETE FROM garden_plants").run();
+  db.exec(`
+    DELETE FROM garden_plants;
+    DELETE FROM custom_apps;
+    DELETE FROM custom_sites;
+    DELETE FROM custom_sessions;
+  `);
   return true;
 }
 
