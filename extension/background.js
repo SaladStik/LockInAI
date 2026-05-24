@@ -22,9 +22,10 @@ let authed = false;
 let backoffMs = 500;
 const MAX_BACKOFF_MS = 10000;
 
-// Pushed by the app: whether a focus session is active and where the blocked
-// page lives, so we can redirect new tabs to it.
-let session = { active: false, blockedUrl: null };
+// Pushed by the app: whether a focus session is active, where the blocked page
+// lives (for new-tab redirects), and the allowed hostnames (for filtering
+// search results).
+let session = { active: false, blockedUrl: null, allowedHosts: [] };
 
 function browserLabel() {
   try {
@@ -67,7 +68,11 @@ function connect() {
     }
     if (!authed) return;
     if (msg.type === "session") {
-      session = { active: Boolean(msg.active), blockedUrl: msg.blockedUrl || null };
+      session = {
+        active: Boolean(msg.active),
+        blockedUrl: msg.blockedUrl || null,
+        allowedHosts: Array.isArray(msg.allowedHosts) ? msg.allowedHosts : [],
+      };
     } else if (msg.type === "navigate") {
       handleNavigate(msg);
     } else if (msg.type === "switch") {
@@ -154,7 +159,7 @@ async function handleSwitch(msg) {
 // Browser "new tab" / start pages, plus blank. Real navigations (links, typed
 // URLs) are NOT matched, so only genuinely-empty new tabs get redirected.
 const NEW_TAB_RE =
-  /^(about:(blank|newtab|home)|(chrome|edge|brave|vivaldi|opera|browser):\/\/(newtab|new-tab-page|startpage|start|new-tab)\/?)/i;
+  /^(about:(blank|newtab|home)|chrome:\/\/(newtab|new-tab-page|vivaldi-webui)|(chrome|edge|brave|vivaldi|opera|browser):\/\/(newtab|new-tab-page|startpage|start|new-tab|speeddial))/i;
 
 function isNewTabUrl(url) {
   if (!url) return true; // freshly created blank tab
@@ -184,7 +189,12 @@ chrome.windows.onFocusChanged.addListener(() => reportTabs());
 
 // ---- Default-engine search (from the blocked page) -----------------------
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // The result-filter content script asks for the current allow-list.
+  if (msg?.type === "get-filter-state") {
+    sendResponse({ active: session.active, allowedHosts: session.allowedHosts });
+    return; // synchronous response
+  }
   if (msg?.type !== "lockin-search" || !msg.q) return;
   const q = String(msg.q);
   const tabId = sender.tab?.id;

@@ -113,12 +113,16 @@ export function isSiteAllowed(
 ): boolean {
   if (!url) return true;
   if (NEW_TAB_PATTERNS.some((re) => re.test(url))) return true;
-  let host = "";
+  let parsed: URL;
   try {
-    host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    parsed = new URL(url);
   } catch {
     return true;
   }
+  // Browser-internal pages (chrome://, vivaldi://, about:, extension pages, the
+  // browser's own new-tab/start page) are not websites — never a distraction.
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return true;
+  const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
   if (!host) return true;
   const allChecks = [
     ...ALWAYS_ALLOWED_HOSTS,

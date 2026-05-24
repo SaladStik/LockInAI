@@ -47,6 +47,21 @@ function effectiveAllowedHosts(allowedApps = [], allowedSites = []) {
   return hosts;
 }
 
+/**
+ * The complete, normalized set of hostnames allowed in a browser during a
+ * session: always-allowed defaults + user sites + site-like app hosts. Shared
+ * with the companion extension so it can filter search results client-side.
+ */
+function allowedHostsFor(allowedApps = [], allowedSites = []) {
+  const hosts = [
+    ...ALWAYS_ALLOWED_HOSTS,
+    ...effectiveAllowedHosts(allowedApps, allowedSites),
+  ]
+    .map((h) => String(h).toLowerCase().replace(/^www\./, "").trim())
+    .filter(Boolean);
+  return [...new Set(hosts)];
+}
+
 const OUR_APP_PATTERNS = [/electron/i, /lockin/i, /lock\/\/in/i];
 
 const SYSTEM_BUNDLE_IDS = new Set([
@@ -148,13 +163,17 @@ function isOwnApp(snapshot) {
 function isSiteAllowed(url, allowedSites = []) {
   if (!url) return true;
   if (NEW_TAB_PATTERNS.some((re) => re.test(url))) return true;
-  let host = "";
+  let parsed;
   try {
-    host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    parsed = new URL(url);
   } catch {
     // Unparseable URL — fail open, otherwise weird internal pages break flow.
     return true;
   }
+  // Browser-internal pages (chrome://, vivaldi://, about:, extension pages, the
+  // browser's own new-tab/start page) are not websites — never a distraction.
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return true;
+  const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
   if (!host) return true;
   const allChecks = [
     ...ALWAYS_ALLOWED_HOSTS,
@@ -204,5 +223,6 @@ module.exports = {
   isSiteAllowed,
   isSupportedBrowser,
   isBrowserSnapshot,
+  allowedHostsFor,
   ALWAYS_ALLOWED_HOSTS,
 };

@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
 const OSASCRIPT_TIMEOUT_MS = 2000;
 const path = require("node:path");
 const db = require("./db.cjs");
-const { isAllowedFocusApp, isSiteAllowed, isBrowserSnapshot, ALWAYS_ALLOWED_HOSTS } = require("./app-match.cjs");
+const { isAllowedFocusApp, isSiteAllowed, isBrowserSnapshot, allowedHostsFor, ALWAYS_ALLOWED_HOSTS } = require("./app-match.cjs");
 const blockedServer = require("./blocked-server.cjs");
 const winTabs = require("./win-tabs.cjs");
 const { createFocusWindow } = require("./focus-window.cjs");
@@ -121,24 +121,6 @@ let lastAllowedTitle = null; // for Windows tab restoration (UIA exposes title, 
 let lastRestoreAt = 0;
 const RESTORE_COOLDOWN_MS = 1200;
 
-// macOS browsers that support AppleScript URL setting. Map from the OS-reported
-// owner.name to whether they expect "current tab" (Safari) or "active tab".
-const BROWSER_TAB_ACCESSORS = {
-  "Google Chrome": "active tab of front window",
-  "Google Chrome Canary": "active tab of front window",
-  "Google Chrome Dev": "active tab of front window",
-  "Google Chrome Beta": "active tab of front window",
-  Chromium: "active tab of front window",
-  "Microsoft Edge": "active tab of front window",
-  "Brave Browser": "active tab of front window",
-  "Brave Browser Nightly": "active tab of front window",
-  Vivaldi: "active tab of front window",
-  Arc: "active tab of front window",
-  Opera: "active tab of front window",
-  Safari: "current tab of front window",
-  "Safari Technology Preview": "current tab of front window",
-};
-
 async function runOsascript(script) {
   try {
     const { stdout } = await execFileAsync("/usr/bin/osascript", ["-e", script], {
@@ -150,20 +132,11 @@ async function runOsascript(script) {
   }
 }
 
-async function restoreBrowserTab(appName, targetUrl, windowId = null) {
+// Windows-only fallback for steering a browser tab when the companion
+// extension isn't connected (keystroke-driven address-bar navigation). macOS
+// has no fallback — it relies on the extension, the primary path on both OSes.
+async function restoreBrowserTab(_appName, targetUrl, windowId = null) {
   if (!targetUrl) return false;
-  if (process.platform === "darwin") {
-    if (!appName) return false;
-    const accessor = BROWSER_TAB_ACCESSORS[appName];
-    if (!accessor) return false;
-    const safeApp = appName.replace(/"/g, '\\"');
-    const safeUrl = targetUrl.replace(/"/g, '\\"');
-    const r = await runOsascript(
-      `tell application "${safeApp}" to set URL of ${accessor} to "${safeUrl}"`,
-    );
-    if (!r.ok) console.error("[focus] tab restore error:", r.error?.message);
-    return r.ok;
-  }
   if (process.platform === "win32") {
     if (!windowId) return false;
     try {
@@ -174,43 +147,6 @@ async function restoreBrowserTab(appName, targetUrl, windowId = null) {
     }
   }
   return false;
-}
-
-/** List the URLs of every tab in the browser's front window. */
-async function getBrowserTabUrls(appName) {
-  if (process.platform !== "darwin") return null;
-  if (!BROWSER_TAB_ACCESSORS[appName]) return null;
-  // Safari uses a different tab object model — skip for now.
-  if (/Safari/.test(appName)) return null;
-  const safeApp = appName.replace(/"/g, '\\"');
-  // \\u001E is RS (record separator) — unlikely to appear in URLs, easy to split.
-  const script =
-    `tell application "${safeApp}"\n` +
-    `set AppleScript's text item delimiters to (ASCII character 30)\n` +
-    `return (URL of every tab of front window) as text\n` +
-    `end tell`;
-  const r = await runOsascript(script);
-  if (!r.ok) return null;
-  const out = r.stdout.trim();
-  if (!out) return [];
-  try {
-    return out.split("").map((s) => s.trim());
-  } catch (e) {
-    return null;
-  }
-}
-
-/** Switch the browser's front window to the given 1-based tab index. */
-async function switchToBrowserTab(appName, tabIndex) {
-  if (process.platform !== "darwin") return false;
-  if (!BROWSER_TAB_ACCESSORS[appName]) return false;
-  if (/Safari/.test(appName)) return false;
-  const safeApp = appName.replace(/"/g, '\\"');
-  const r = await runOsascript(
-    `tell application "${safeApp}" to set active tab index of front window to ${tabIndex}`,
-  );
-  if (!r.ok) console.error("[focus] switch tab error:", r.error?.message);
-  return r.ok;
 }
 
 const { focusWindowById, navigateActiveTab } = createFocusWindow();
@@ -294,13 +230,19 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
         focusSession.allowedSites,
       );
       if (isBrowser && !allowedNow) {
-        restoreBrowserTab(
-          lastSnapshot.app,
-          blockedPageUrlFor(focusSession.allowedSites),
-          lastSnapshot.windowId,
-        ).catch((e) =>
-          console.error("[focus] start-clean nav failed:", e?.message),
-        );
+        const blocked = blockedPageUrlFor(focusSession.allowedSites);
+        const extTab = extBridge.isConnected() ? extBridge.getActiveTab() : null;
+        if (extTab && typeof extTab.tabId === "number") {
+          // Extension path (macOS + Windows).
+          extBridge.navigateTab(extTab.tabId, blocked).catch(() => {});
+        } else {
+          // Windows keystroke fallback.
+          restoreBrowserTab(
+            lastSnapshot.app,
+            blocked,
+            lastSnapshot.windowId,
+          ).catch((e) => console.error("[focus] start-clean nav failed:", e?.message));
+        }
       }
     }
   }
@@ -319,6 +261,10 @@ ipcMain.on("focus-session:sync", (_e, payload) => {
     blockedUrl: focusSession.active
       ? blockedPageUrlFor(focusSession.allowedSites)
       : null,
+    // Allowed hostnames so the extension can filter search results client-side.
+    allowedHosts: focusSession.active
+      ? allowedHostsFor(focusSession.allowedApps, focusSession.allowedSites)
+      : [],
   });
 });
 
@@ -340,10 +286,10 @@ function startActiveAppPolling(win) {
       if (info?.owner?.name) {
         const snapshot = snapshotFromInfo(info);
 
-        // Windows: get-windows can't read tab URLs. If the companion extension
-        // is connected and the foreground app is a browser, borrow the real
-        // active-tab URL so site allow/deny works the same as on macOS.
-        if (!snapshot.url && isBrowserSnapshot(snapshot) && extBridge.isConnected()) {
+        // The companion extension is the single source of browser tab info on
+        // both macOS and Windows. When it's connected and a browser is focused,
+        // use its real active-tab URL (overriding whatever the OS reported).
+        if (isBrowserSnapshot(snapshot) && extBridge.isConnected()) {
           const extTab = extBridge.getActiveTab();
           if (extTab?.url) {
             snapshot.url = extTab.url;
@@ -397,25 +343,11 @@ function startActiveAppPolling(win) {
                 restored = { windowId: null, refocused: blocked };
               }
             }
-            if (!restored && (lastAllowedUrl || lastAllowedTitle)) {
-              if (process.platform === "darwin") {
-                const urls = await getBrowserTabUrls(snapshot.app);
-                if (urls && urls.length) {
-                  const currentIndex = urls.findIndex((u) => u === snapshot.url);
-                  const targetIndex = urls.findIndex(
-                    (u, i) => i !== currentIndex && u === lastAllowedUrl,
-                  );
-                  if (targetIndex >= 0) {
-                    if (await switchToBrowserTab(snapshot.app, targetIndex + 1)) {
-                      restored = { windowId: null, refocused: urls[targetIndex] };
-                    }
-                  }
-                }
-              } else if (
-                process.platform === "win32" &&
-                lastAllowedTitle &&
-                snapshot.windowId
-              ) {
+            // Windows-only fallback when the extension isn't connected: match a
+            // tab by title via UIA, else keystroke-navigate the address bar.
+            // (macOS relies entirely on the extension.)
+            if (!restored && process.platform === "win32" && !alreadyBlocked) {
+              if (lastAllowedTitle && snapshot.windowId) {
                 // UIA exposes tab page titles via TabItem.Name — match on title.
                 const tabs = await winTabs.listTabs(snapshot.windowId);
                 if (tabs && tabs.length) {
@@ -447,24 +379,18 @@ function startActiveAppPolling(win) {
                   }
                 }
               }
-              // Tab match failed — rewrite the offending tab's URL back to
-              // wherever the user came from.
               if (!restored && lastAllowedUrl) {
                 if (
-                  await restoreBrowserTab(
-                    snapshot.app,
-                    lastAllowedUrl,
-                    snapshot.windowId,
-                  )
+                  await restoreBrowserTab(snapshot.app, lastAllowedUrl, snapshot.windowId)
                 ) {
                   restored = { windowId: null, refocused: lastAllowedUrl };
                 }
               }
-            }
-            if (!restored) {
-              const blocked = blockedPageUrlFor(focusSession.allowedSites);
-              if (await restoreBrowserTab(snapshot.app, blocked, snapshot.windowId)) {
-                restored = { windowId: null, refocused: blocked };
+              if (!restored) {
+                const blocked = blockedPageUrlFor(focusSession.allowedSites);
+                if (await restoreBrowserTab(snapshot.app, blocked, snapshot.windowId)) {
+                  restored = { windowId: null, refocused: blocked };
+                }
               }
             }
           }

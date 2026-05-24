@@ -189,9 +189,13 @@ function createBridge() {
     return conn ? commandTo(socketFor(conn), "switch", { tabId }) : Promise.resolve(false);
   }
 
-  /** Push focus-session state (active + blocked-page URL) to every browser. */
-  function broadcastSession({ active, blockedUrl }) {
-    lastSession = { active: Boolean(active), blockedUrl: blockedUrl ?? null };
+  /** Push focus-session state (active, blocked-page URL, allowed hosts) to every browser. */
+  function broadcastSession({ active, blockedUrl, allowedHosts }) {
+    lastSession = {
+      active: Boolean(active),
+      blockedUrl: blockedUrl ?? null,
+      allowedHosts: Array.isArray(allowedHosts) ? allowedHosts : [],
+    };
     const payload = JSON.stringify({ type: "session", ...lastSession });
     for (const socket of conns.keys()) {
       if (socket.readyState === 1) {
