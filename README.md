@@ -1,4 +1,8 @@
 # LOCK//IN AI
+***
+### 🏆 Award-Winning Hackathon Project 🏆
+
+[![Community Choice](https://img.shields.io/badge/🥇_Community_Choice-Winner-gold?style=for-the-badge)](https://take-home.skillsproject.ai/hackathons/6920c68ad7d8abe4550222ee)
 
 > **Focus that grows.**
 > A desktop focus companion that helps you lock into the work you actually planned to do — and rewards every session with a living digital garden.
